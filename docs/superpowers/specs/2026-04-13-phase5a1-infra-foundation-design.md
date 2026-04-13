@@ -4,7 +4,7 @@
 
 **Goal:** Stand up the minimum AWS foundation that later sub-phases (5a.2 backend compute, 5a.3 async/pdf-render, 5a.4 frontend CDN, 5a.5 CI/CD) build on top of, without deploying any application code. Also: rename the entire codebase from CareerAgent to HireLoop so AWS resource names are born correct.
 
-**Phase context:** This is engineering Phase 5a.1 within the Phase 5 (polish + deploy) umbrella. See `memory/phase_roadmap.md` for the full engineering phase decomposition.
+**Phase context:** This is engineering Phase 5a.1 within the Phase 5 (polish + deploy) umbrella. See the phase roadmap in project memory for the full engineering phase decomposition. Parent design doc: `docs/superpowers/specs/2026-04-10-careeragent-design.md`.
 
 ---
 
@@ -126,8 +126,7 @@ HireLoop-Config-dev       (Secrets Manager skeletons + SSM params)
 - `acm.Certificate` for `hireloop.xyz` + SAN `*.hireloop.xyz`
   - DNS validation via the hosted zone (auto-creates CNAME records)
   - Region: us-east-1 (required for CloudFront + Cognito custom domain compatibility)
-- Placeholder A records: `app.hireloop.xyz`, `api.hireloop.xyz`, `admin.hireloop.xyz` all pointing to `127.0.0.1`
-  - 5a.2 and 5a.4 replace these with real ALB/CloudFront alias records
+- Placeholder A records: `app.hireloop.xyz`, `api.hireloop.xyz`, `admin.hireloop.xyz` all pointing to `127.0.0.1` (holds the DNS names so they don't return NXDOMAIN; 5a.2 and 5a.4 replace with real ALB/CloudFront alias records)
 - Outputs exported to SSM:
   - `/hireloop/shared/dns/hosted-zone-id`
   - `/hireloop/shared/dns/certificate-arn`
@@ -144,7 +143,8 @@ HireLoop-Config-dev       (Secrets Manager skeletons + SSM params)
   - `SG-ALB` — will allow 443 from `0.0.0.0/0`
   - `SG-EC2-Backend` — will allow 8000 from SG-ALB
   - `SG-Lambda` — outbound only
-  - `SG-RDS` — will allow 5432 from SG-Lambda + SG-EC2-Backend
+  - `SG-DbBootstrap` — egress 5432 to SG-RDS + egress to S3 gateway prefix list (used by Data stack custom resource Lambda)
+  - `SG-RDS` — will allow 5432 from SG-Lambda + SG-EC2-Backend + SG-DbBootstrap
   - `SG-FckNat` — will allow from private-egress, egress `0.0.0.0/0`
 - VPC endpoints: S3 gateway endpoint (free)
 - Outputs: `vpcId`, subnet IDs, SG IDs
@@ -166,7 +166,9 @@ HireLoop-Config-dev       (Secrets Manager skeletons + SSM params)
 
 **Database bootstrap custom resource:**
 
-A one-shot Lambda (CDK `Provider` framework) placed in the **private-isolated subnet** alongside RDS (no internet access needed — it only talks to RDS via the SG-RDS ingress rule). Connects via master credentials and runs:
+A one-shot Lambda (CDK `Provider` framework) placed in the **private-isolated subnet** alongside RDS. Connects via master credentials and runs as the master user, connecting to each database in turn.
+
+**Networking note:** The Provider framework Lambda responds to CloudFormation via a pre-signed S3 URL. The S3 gateway endpoint (already provisioned in `HireLoop-Network`) handles this traffic — no NAT or interface VPC endpoints required. CloudWatch Logs delivery will silently fail from the isolated subnet (no Logs endpoint), which is acceptable for a one-shot bootstrap Lambda. The Lambda uses a dedicated `SG-DbBootstrap` security group with egress to `SG-RDS` on port 5432 and egress to the S3 gateway prefix list. `SG-RDS` must allow ingress from `SG-DbBootstrap` in addition to the existing `SG-Lambda` + `SG-EC2-Backend` rules.
 
 ```sql
 -- Create databases
@@ -179,15 +181,20 @@ CREATE USER hireloop_dev_app WITH PASSWORD '<random>';
 CREATE USER hireloop_sandbox_app WITH PASSWORD '<random>';
 CREATE USER hireloop_prod_app WITH PASSWORD '<random>';
 
--- Grant isolation (run per-database)
--- Connected to hireloop_dev:
+-- Grant isolation (bootstrap connects as master to each database in turn)
+-- Connected to hireloop_dev as master:
 GRANT CONNECT ON DATABASE hireloop_dev TO hireloop_dev_app;
-GRANT ALL PRIVILEGES ON SCHEMA public TO hireloop_dev_app;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON TABLES TO hireloop_dev_app;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON SEQUENCES TO hireloop_dev_app;
+GRANT USAGE ON SCHEMA public TO hireloop_dev_app;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO hireloop_dev_app;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO hireloop_dev_app;
+ALTER DEFAULT PRIVILEGES FOR ROLE <master_user> IN SCHEMA public
+  GRANT ALL PRIVILEGES ON TABLES TO hireloop_dev_app;
+ALTER DEFAULT PRIVILEGES FOR ROLE <master_user> IN SCHEMA public
+  GRANT ALL PRIVILEGES ON SEQUENCES TO hireloop_dev_app;
 
 -- (same pattern for sandbox_app on hireloop_sandbox, prod_app on hireloop_prod)
 -- NO cross-database grants. dev_app cannot CONNECT to hireloop_sandbox or hireloop_prod.
+-- REVOKE CONNECT ON DATABASE hireloop_sandbox FROM PUBLIC; (repeat per DB, then grant only to its app user)
 ```
 
 Per-env app user passwords stored in Secrets Manager: `hireloop/{env}/db-app-password`.
@@ -210,9 +217,9 @@ Per-env app user passwords stored in Secrets Manager: `hireloop/{env}/db-app-pas
   - Password policy: 10 chars, mixed case, digit required
   - MFA: optional
   - Self-signup: on (dev only)
-  - Custom attributes: `user_id`, `subscription_tier`, `role`, `onboarding_state`
+  - Custom attributes: `custom:user_id`, `custom:subscription_tier`, `custom:role`, `custom:onboarding_state` (Cognito auto-prefixes `custom:` — these must match the existing JWT claim mapping in `backend/src/career_agent/api/deps.py` and profile onboarding flow; verify attribute names after rename)
   - Account recovery: email only
-  - `RemovalPolicy.RETAIN`
+  - `RemovalPolicy.RETAIN` (negligible cost; teardown is manual — acceptable for dev, required for user safety in prod)
 - `cognito.UserPoolClient` — no client secret
   - Auth flows: SRP + refresh token + `ALLOW_USER_PASSWORD_AUTH` (dev convenience)
   - Default Cognito domain: `hireloop-dev.auth.us-east-1.amazoncognito.com`
@@ -327,7 +334,7 @@ Total: ~20 min CDK + NS propagation wait.
 3. VPC exists with expected CIDR
 4. RDS instance status `available`
 5. Cognito pool `HireLoop-Users-dev` exists
-6. 8 Secrets Manager entries under `hireloop/dev/`
+6. 8 Secrets Manager entries under `hireloop/dev/*` (7 manual + 1 auto db-app-password) + 1 CDK-managed `DatabaseSecret` (auto-named, outside `hireloop/dev/` namespace) = 9 total secrets
 7. 12+ SSM parameters under `/hireloop/`
 8. DB connectivity: `SELECT 1` on each database via per-env app user (uses Data stack custom resource Lambda or a dedicated smoke-test Lambda)
 
@@ -351,7 +358,7 @@ Total: ~20 min CDK + NS propagation wait.
 | Route53 hosted zone | $0.50 |
 | ACM certificate | Free |
 | Cognito (free tier) | Free |
-| Secrets Manager (8 x $0.40) | ~$3.20 |
+| Secrets Manager (9 total: 8 under `hireloop/dev/*` + 1 CDK DatabaseSecret) | ~$3.60 |
 | SSM Parameter Store | Free |
 | S3 gateway VPC endpoint | Free |
 | **5a.1 subtotal** | **~$23/mo** |
