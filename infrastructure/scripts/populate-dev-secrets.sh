@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# Populate hireloop/dev/* secrets from a local env file (never commit real values).
+# Usage: copy infrastructure/.env.deploy.local.example to infrastructure/.env.deploy.local, fill in keys, then:
+#   bash infrastructure/scripts/populate-dev-secrets.sh
+
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+ENV_FILE="${ENV_FILE:-$ROOT/infrastructure/.env.deploy.local}"
+
+if [[ ! -f "$ENV_FILE" ]]; then
+  echo "Missing $ENV_FILE — copy infrastructure/.env.deploy.local.example and fill values." >&2
+  exit 1
+fi
+
+set -a
+# shellcheck disable=SC1090
+source "$ENV_FILE"
+set +a
+
+require() {
+  local name=$1
+  if [[ -z "${!name:-}" ]]; then
+    echo "Missing required var: $name" >&2
+    exit 1
+  fi
+}
+
+require ANTHROPIC_API_KEY
+require GOOGLE_API_KEY
+require STRIPE_SECRET_KEY
+require STRIPE_WEBHOOK_SECRET
+require PDF_RENDER_SHARED_SECRET
+require INNGEST_EVENT_KEY
+require INNGEST_SIGNING_KEY
+
+put_raw() {
+  local secret_id=$1
+  local val=$2
+  aws secretsmanager put-secret-value \
+    --secret-id "$secret_id" \
+    --secret-string "$val" \
+    --region "${AWS_REGION:-us-east-1}"
+}
+
+put_raw "hireloop/dev/anthropic-api-key" "$ANTHROPIC_API_KEY"
+put_raw "hireloop/dev/google-api-key" "$GOOGLE_API_KEY"
+put_raw "hireloop/dev/stripe-secret-key" "$STRIPE_SECRET_KEY"
+put_raw "hireloop/dev/stripe-webhook-secret" "$STRIPE_WEBHOOK_SECRET"
+put_raw "hireloop/dev/pdf-render-shared-secret" "$PDF_RENDER_SHARED_SECRET"
+put_raw "hireloop/dev/inngest-event-key" "$INNGEST_EVENT_KEY"
+put_raw "hireloop/dev/inngest-signing-key" "$INNGEST_SIGNING_KEY"
+
+echo "Updated 7 manual secrets under hireloop/dev/* (db-app-password is written by the HireLoop-Data bootstrap)."

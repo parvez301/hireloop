@@ -1,0 +1,33 @@
+[
+  {
+    "id": "lever-1",
+    "text": "Staff Engineer, Platform",
+    "categories": {
+      "commitment": "Full Time",
+      "location": "Remote - Canada",
+      "team": "Platform Engineering"
+    },
+    "descriptionPlain": "Build Shopify's core platform at massive scale.",
+    "lists": [
+      {
+        "text": "Requirements",
+        "content": "<ul><li>8+ years of backend</li><li>Ruby or Go</li></ul>"
+      }
+    ],
+    "hostedUrl": "https://jobs.lever.co/shopify/lever-1",
+    "workplaceType": "remote"
+  },
+  {
+    "id": "lever-2",
+    "text": "Senior Frontend Engineer",
+    "categories": {
+      "commitment": "Full Time",
+      "location": "Toronto, ON",
+      "team": "Admin Experience"
+    },
+    "descriptionPlain": "Work on the Shopify admin UI.",
+    "lists": [],
+    "hostedUrl": "https://jobs.lever.co/shopify/lever-2",
+    "workplaceType": "hybrid"
+  }
+]

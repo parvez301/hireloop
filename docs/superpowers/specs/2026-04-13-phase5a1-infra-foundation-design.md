@@ -217,7 +217,7 @@ Per-env app user passwords stored in Secrets Manager: `hireloop/{env}/db-app-pas
   - Password policy: 10 chars, mixed case, digit required
   - MFA: optional
   - Self-signup: on (dev only)
-  - Custom attributes: `custom:user_id`, `custom:subscription_tier`, `custom:role`, `custom:onboarding_state` (Cognito auto-prefixes `custom:` — these must match the existing JWT claim mapping in `backend/src/career_agent/api/deps.py` and profile onboarding flow; verify attribute names after rename)
+  - Custom attributes: `custom:user_id`, `custom:subscription_tier`, `custom:role`, `custom:onboarding_state` (Cognito auto-prefixes `custom:` — these must match the existing JWT claim mapping in `backend/src/hireloop/api/deps.py` and profile onboarding flow; verify attribute names after rename)
   - Account recovery: email only
   - `RemovalPolicy.RETAIN` (negligible cost; teardown is manual — acceptable for dev, required for user safety in prod)
 - `cognito.UserPoolClient` — no client secret

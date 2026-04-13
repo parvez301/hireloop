@@ -1,0 +1,25 @@
+{
+  "jobs": [
+    {
+      "id": "ashby-job-1",
+      "title": "Senior Backend Engineer",
+      "descriptionHtml": "<p>Build Linear's backend at scale.</p><ul><li>5+ years backend experience</li><li>TypeScript or Go</li></ul>",
+      "locationName": "Remote (Americas)",
+      "departmentName": "Engineering",
+      "employmentType": "FullTime",
+      "compensation": {
+        "compensationTierSummary": "$180K – $240K"
+      },
+      "jobUrl": "https://jobs.ashbyhq.com/linear/ashby-job-1"
+    },
+    {
+      "id": "ashby-job-2",
+      "title": "Staff Frontend Engineer",
+      "descriptionHtml": "<p>Lead frontend architecture.</p>",
+      "locationName": "San Francisco",
+      "departmentName": "Engineering",
+      "employmentType": "FullTime",
+      "jobUrl": "https://jobs.ashbyhq.com/linear/ashby-job-2"
+    }
+  ]
+}

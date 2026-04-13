@@ -1,0 +1,106 @@
+[project]
+name = "hireloop"
+version = "0.1.0"
+description = "HireLoop backend — candidate-side AI career assistant"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "sqlalchemy[asyncio]>=2.0.35",
+    "asyncpg>=0.30.0",
+    "alembic>=1.13.3",
+    "pydantic>=2.9.0",
+    "pydantic-settings>=2.6.0",
+    "boto3>=1.35.0",
+    "anthropic>=0.40,<0.50",
+    "redis>=5.1.0",
+    "httpx>=0.27.0",
+    "python-jose[cryptography]>=3.3.0",
+    "pypdf>=5.1.0",
+    "python-docx>=1.1.2",
+    "python-multipart>=0.0.17",
+    "structlog>=24.4.0",
+    "sentry-sdk[fastapi]>=2.18.0",
+    "langgraph>=0.2,<0.3",
+    "langchain-anthropic>=0.3,<0.4",
+    "langchain-core>=0.3,<0.4",
+    "google-generativeai>=0.8,<0.9",
+    "beautifulsoup4>=4.12,<5",
+    "tenacity>=9.0,<10",
+    "stripe>=11.0,<12",
+    "inngest>=0.4,<0.5",
+    "markdownify>=0.13,<0.14",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=6.0.0",
+    "pytest-postgresql>=6.1.0",
+    "respx>=0.23,<0.24",
+    "freezegun>=1.5,<2",
+    "ruff>=0.7.0",
+    "black>=24.10.0",
+    "mypy>=1.13.0",
+    "types-python-jose>=3.3.4",
+    "moto[s3]>=5.0.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "ASYNC"]
+
+[tool.ruff.lint.per-file-ignores]
+# Prompt / content files contain long literal strings whose wrapping would change
+# what the LLM actually receives; we keep them verbatim.
+"src/hireloop/core/agent/prompts.py" = ["E501"]
+"src/hireloop/core/agent/graph.py" = ["E501"]
+"src/hireloop/core/evaluation/job_parser.py" = ["E501"]
+"src/hireloop/core/evaluation/claude_scorer.py" = ["E501"]
+"src/hireloop/core/llm/gemini_client.py" = ["E501"]
+
+[tool.black]
+line-length = 100
+target-version = ["py312"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = ["boto3.*", "botocore.*", "docx.*", "pypdf.*", "stripe.*", "inngest.*", "markdownify"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["hireloop.inngest.scan_boards", "hireloop.inngest.batch_evaluate"]
+disable_error_code = ["arg-type", "attr-defined", "no-any-return"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.coverage.run]
+source = ["hireloop"]
+branch = true
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "fakeredis>=2.35.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/hireloop"]

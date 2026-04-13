@@ -1,0 +1,26 @@
+{
+  "jobs": [
+    {
+      "id": 9001,
+      "title": "Senior Software Engineer",
+      "absolute_url": "https://boards.greenhouse.io/stripe/jobs/9001",
+      "content": "<p>We are hiring a Senior Software Engineer for our platform team. You will build scalable systems, collaborate with product, and mentor engineers. Requirements include distributed systems experience, strong Python or Go skills, and excellent communication. This role is remote-friendly within North America.</p><p>Benefits include equity, health coverage, and flexible PTO.</p>",
+      "location": { "name": "Remote" },
+      "metadata": [
+        { "name": "Employment Type", "value": "Full-time" },
+        { "name": "Seniority Level", "value": "Senior" }
+      ]
+    },
+    {
+      "id": 9002,
+      "title": "Staff Engineer",
+      "absolute_url": "https://boards.greenhouse.io/stripe/jobs/9002",
+      "content": "<p>Staff Engineer role focusing on infrastructure and reliability. Lead technical direction, drive cross-team initiatives, and improve developer productivity. Deep experience with cloud-native architectures and on-call practices expected.</p>",
+      "location": { "name": "Remote" },
+      "metadata": [
+        { "name": "Employment Type", "value": "Full-time" },
+        { "name": "Seniority Level", "value": "Staff" }
+      ]
+    }
+  ]
+}
