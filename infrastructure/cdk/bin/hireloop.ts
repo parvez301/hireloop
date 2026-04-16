@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import "source-map-support/register";
 import * as cdk from "aws-cdk-lib";
+import { AppStack } from "../lib/app-stack";
 import { AuthStack } from "../lib/auth-stack";
 import { ConfigStack } from "../lib/config-stack";
 import { DataStack } from "../lib/data-stack";
@@ -21,7 +22,6 @@ const data = new DataStack(app, "HireLoop-Data", {
   env,
   vpc: network.vpc,
   securityGroupRds: network.securityGroups.rds,
-  securityGroupDbBootstrap: network.securityGroups.dbBootstrap,
 });
 data.addDependency(network);
 
@@ -41,3 +41,14 @@ const configDev = new ConfigStack(app, "HireLoop-Config-dev", {
 });
 configDev.addDependency(data);
 configDev.addDependency(authDev);
+
+if (process.env.CI !== "true") {
+  const appDev = new AppStack(app, "HireLoop-App-dev", {
+    env,
+    environment: "dev",
+  });
+  appDev.addDependency(network);
+  appDev.addDependency(data);
+  appDev.addDependency(authDev);
+  appDev.addDependency(configDev);
+}

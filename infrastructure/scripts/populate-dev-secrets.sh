@@ -34,21 +34,25 @@ require PDF_RENDER_SHARED_SECRET
 require INNGEST_EVENT_KEY
 require INNGEST_SIGNING_KEY
 
-put_raw() {
+put_json_key() {
+  # Writes {"key": "<value>"} — matches the JSON shape `buildApiEnv` reads via
+  # `.secretValueFromJson("key").unsafeUnwrap()` in infrastructure/cdk/lib/app-stack.ts.
   local secret_id=$1
   local val=$2
+  local payload
+  payload=$(jq -n --arg v "$val" '{key: $v}')
   aws secretsmanager put-secret-value \
     --secret-id "$secret_id" \
-    --secret-string "$val" \
+    --secret-string "$payload" \
     --region "${AWS_REGION:-us-east-1}"
 }
 
-put_raw "hireloop/dev/anthropic-api-key" "$ANTHROPIC_API_KEY"
-put_raw "hireloop/dev/google-api-key" "$GOOGLE_API_KEY"
-put_raw "hireloop/dev/stripe-secret-key" "$STRIPE_SECRET_KEY"
-put_raw "hireloop/dev/stripe-webhook-secret" "$STRIPE_WEBHOOK_SECRET"
-put_raw "hireloop/dev/pdf-render-shared-secret" "$PDF_RENDER_SHARED_SECRET"
-put_raw "hireloop/dev/inngest-event-key" "$INNGEST_EVENT_KEY"
-put_raw "hireloop/dev/inngest-signing-key" "$INNGEST_SIGNING_KEY"
+put_json_key "hireloop/dev/anthropic-api-key" "$ANTHROPIC_API_KEY"
+put_json_key "hireloop/dev/google-api-key" "$GOOGLE_API_KEY"
+put_json_key "hireloop/dev/stripe-secret-key" "$STRIPE_SECRET_KEY"
+put_json_key "hireloop/dev/stripe-webhook-secret" "$STRIPE_WEBHOOK_SECRET"
+put_json_key "hireloop/dev/pdf-render-shared-secret" "$PDF_RENDER_SHARED_SECRET"
+put_json_key "hireloop/dev/inngest-event-key" "$INNGEST_EVENT_KEY"
+put_json_key "hireloop/dev/inngest-signing-key" "$INNGEST_SIGNING_KEY"
 
 echo "Updated 7 manual secrets under hireloop/dev/* (db-app-password is written by the HireLoop-Data bootstrap)."

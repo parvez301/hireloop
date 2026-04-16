@@ -4,15 +4,13 @@ from __future__ import annotations
 
 import json as _json
 from collections.abc import AsyncIterator
-from typing import Any
+from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from redis.asyncio import Redis
 
-from hireloop.api.deps import DbSession, EntitledDbUser, RedisClient
-from hireloop.config import get_settings
+from hireloop.api.deps import DbSession, EntitledDbUser, get_message_rate_limiter
 from hireloop.core.agent.runner import run_turn
 from hireloop.models.conversation import Message
 from hireloop.schemas.agent import SseEvent
@@ -24,20 +22,9 @@ from hireloop.schemas.conversation import (
     MessageOut,
 )
 from hireloop.services.conversation import ConversationService
-from hireloop.services.rate_limit import RateLimiter
+from hireloop.services.rate_limit import SupportsRateCheck
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
-
-
-def _rate_limiter(redis: Redis) -> RateLimiter:
-    settings = get_settings()
-    cap = settings.agent_message_rate_limit_per_minute
-    return RateLimiter(
-        redis,
-        capacity=cap,
-        refill_per_second=cap / 60.0,
-        bucket_name="msg",
-    )
 
 
 @router.post("")
@@ -102,9 +89,8 @@ async def send_message(
     payload: MessageCreate,
     user: EntitledDbUser,
     session: DbSession,
-    redis: RedisClient,
+    limiter: Annotated[SupportsRateCheck, Depends(get_message_rate_limiter)],
 ) -> dict[str, Any]:
-    limiter = _rate_limiter(redis)
     await limiter.check(str(user.id))
 
     service = ConversationService(session)

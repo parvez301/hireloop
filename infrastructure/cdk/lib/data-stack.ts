@@ -13,7 +13,6 @@ import { Construct } from "constructs";
 export interface DataStackProps extends cdk.StackProps {
   readonly vpc: ec2.IVpc;
   readonly securityGroupRds: ec2.ISecurityGroup;
-  readonly securityGroupDbBootstrap: ec2.ISecurityGroup;
 }
 
 export class DataStack extends cdk.Stack {
@@ -36,6 +35,15 @@ export class DataStack extends cdk.Stack {
       ],
     });
 
+    const pgParams = new rds.ParameterGroup(this, "PostgresParams", {
+      engine: rds.DatabaseInstanceEngine.postgres({
+        version: rds.PostgresEngineVersion.VER_16,
+      }),
+      parameters: {
+        "rds.force_ssl": "1",
+      },
+    });
+
     this.database = new rds.DatabaseInstance(this, "Postgres", {
       engine: rds.DatabaseInstanceEngine.postgres({
         version: rds.PostgresEngineVersion.VER_16,
@@ -45,7 +53,7 @@ export class DataStack extends cdk.Stack {
         ec2.InstanceSize.SMALL,
       ),
       vpc: props.vpc,
-      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_ISOLATED },
+      vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
       securityGroups: [props.securityGroupRds],
       multiAz: false,
       allocatedStorage: 20,
@@ -53,11 +61,12 @@ export class DataStack extends cdk.Stack {
       storageEncrypted: true,
       backupRetention: cdk.Duration.days(7),
       autoMinorVersionUpgrade: true,
-      publiclyAccessible: false,
+      publiclyAccessible: true,
       deletionProtection: false,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
       databaseName: "hireloop_dev",
       credentials: rds.Credentials.fromGeneratedSecret("postgres"),
+      parameterGroup: pgParams,
     });
 
     const masterSecret = this.database.secret!;
@@ -72,9 +81,6 @@ export class DataStack extends cdk.Stack {
       entry: path.join(__dirname, "db-bootstrap-handler.ts"),
       handler: "handler",
       timeout: cdk.Duration.minutes(5),
-      vpc: props.vpc,
-      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_ISOLATED },
-      securityGroups: [props.securityGroupDbBootstrap],
       environment: {},
       bundling: {
         minify: true,
@@ -103,6 +109,11 @@ export class DataStack extends cdk.Stack {
     new ssm.StringParameter(this, "ParamMasterSecretArn", {
       parameterName: "/hireloop/shared/rds/master-secret-arn",
       stringValue: masterSecret.secretArn,
+    });
+
+    new ssm.StringParameter(this, "ParamDevDbAppSecretArn", {
+      parameterName: "/hireloop/dev/db/app-secret-arn",
+      stringValue: this.dbAppDevSecret.secretArn,
     });
 
     new cdk.CfnOutput(this, "DbEndpoint", {

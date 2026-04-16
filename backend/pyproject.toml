@@ -30,6 +30,7 @@ dependencies = [
     "stripe>=11.0,<12",
     "inngest>=0.4,<0.5",
     "markdownify>=0.13,<0.14",
+    "mangum>=0.17,<0.20",
 ]
 
 [project.optional-dependencies]
@@ -75,7 +76,7 @@ warn_unused_configs = true
 disallow_untyped_defs = true
 
 [[tool.mypy.overrides]]
-module = ["boto3.*", "botocore.*", "docx.*", "pypdf.*", "stripe.*", "inngest.*", "markdownify"]
+module = ["boto3.*", "botocore.*", "docx.*", "pypdf.*", "stripe.*", "inngest.*", "markdownify", "mangum"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]

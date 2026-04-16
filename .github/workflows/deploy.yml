@@ -1,0 +1,236 @@
+name: Deploy (dev)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        type: choice
+        options: [dev]
+        default: dev
+      rollback_to_sha:
+        description: "Commit SHA to roll back to. Leave empty for normal deploy."
+        required: false
+        type: string
+
+concurrency:
+  group: deploy-${{ github.event.inputs.environment || 'dev' }}
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  determine-environment:
+    runs-on: ubuntu-latest
+    outputs:
+      env_name: ${{ steps.out.outputs.env_name }}
+      deploy_sha: ${{ steps.out.outputs.deploy_sha }}
+    steps:
+      - id: out
+        run: |
+          ENV_NAME="${{ github.event.inputs.environment || 'dev' }}"
+          SHA="${{ github.sha }}"
+          if [ -n "${{ github.event.inputs.rollback_to_sha }}" ]; then
+            SHA="${{ github.event.inputs.rollback_to_sha }}"
+          fi
+          echo "env_name=$ENV_NAME" >> "$GITHUB_OUTPUT"
+          echo "deploy_sha=$SHA" >> "$GITHUB_OUTPUT"
+
+  build-image:
+    needs: [determine-environment]
+    if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.rollback_to_sha == '' }}
+    runs-on: ubuntu-24.04-arm
+    outputs:
+      lambda_digest: ${{ steps.build.outputs.lambda_digest }}
+      ec2_digest: ${{ steps.build.outputs.ec2_digest }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.determine-environment.outputs.deploy_sha }}
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/hireloop-github-oidc
+          aws-region: ${{ env.AWS_REGION }}
+      - id: ecr
+        run: |
+          REPO_URI=$(aws ssm get-parameter --name /hireloop/dev/ecr-repo-uri --query Parameter.Value --output text)
+          echo "repo_uri=$REPO_URI" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v3
+      - id: build
+        working-directory: backend
+        run: |
+          SHA="${{ needs.determine-environment.outputs.deploy_sha }}"
+          REPO_URI="${{ steps.ecr.outputs.repo_uri }}"
+          docker buildx build --platform linux/arm64 --target lambda --push \
+            -t "${REPO_URI}:${SHA}-lambda" \
+            --provenance=false \
+            .
+          docker buildx build --platform linux/arm64 --target ec2 --push \
+            -t "${REPO_URI}:${SHA}-ec2" \
+            --provenance=false \
+            .
+          LAMBDA_DIGEST=$(aws ecr describe-images --repository-name hireloop-backend --image-ids imageTag="${SHA}-lambda" --query 'imageDetails[0].imageDigest' --output text)
+          EC2_DIGEST=$(aws ecr describe-images --repository-name hireloop-backend --image-ids imageTag="${SHA}-ec2" --query 'imageDetails[0].imageDigest' --output text)
+          echo "lambda_digest=$LAMBDA_DIGEST" >> "$GITHUB_OUTPUT"
+          echo "ec2_digest=$EC2_DIGEST" >> "$GITHUB_OUTPUT"
+
+  migrate:
+    needs: [determine-environment, build-image]
+    if: |
+      always() &&
+      needs.determine-environment.result == 'success' &&
+      (needs.build-image.result == 'success' || needs.build-image.result == 'skipped')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/hireloop-github-oidc
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Resolve digests (rollback path)
+        id: dig
+        run: |
+          set -euo pipefail
+          if [ "${{ needs.build-image.result }}" = "skipped" ]; then
+            SHA="${{ needs.determine-environment.outputs.deploy_sha }}"
+            # Pre-flight: rollback requires both images to still exist in ECR
+            # (20-image lifecycle rule can evict older SHAs). Fail fast with a
+            # clear message rather than mid-deploy.
+            for TAG in "${SHA}-lambda" "${SHA}-ec2"; do
+              if ! aws ecr describe-images \
+                   --repository-name hireloop-backend \
+                   --image-ids imageTag="${TAG}" >/dev/null 2>&1; then
+                echo "::error::Rollback target image hireloop-backend:${TAG} not found in ECR."
+                echo "::error::The 20-image lifecycle rule has likely evicted it. Manually rebuild and push this SHA before retrying rollback, or choose a more recent SHA (see /hireloop/dev/last-green-sha)."
+                exit 1
+              fi
+            done
+            LAMBDA_DIGEST=$(aws ecr describe-images --repository-name hireloop-backend --image-ids imageTag="${SHA}-lambda" --query 'imageDetails[0].imageDigest' --output text)
+            EC2_DIGEST=$(aws ecr describe-images --repository-name hireloop-backend --image-ids imageTag="${SHA}-ec2" --query 'imageDetails[0].imageDigest' --output text)
+            echo "lambda_digest=$LAMBDA_DIGEST" >> "$GITHUB_OUTPUT"
+            echo "ec2_digest=$EC2_DIGEST" >> "$GITHUB_OUTPUT"
+          else
+            echo "lambda_digest=${{ needs.build-image.outputs.lambda_digest }}" >> "$GITHUB_OUTPUT"
+            echo "ec2_digest=${{ needs.build-image.outputs.ec2_digest }}" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Update & invoke migration Lambda
+        run: |
+          set -euo pipefail
+          REPO_URI=$(aws ssm get-parameter --name /hireloop/dev/ecr-repo-uri --query Parameter.Value --output text)
+          DIG="${{ steps.dig.outputs.lambda_digest }}"
+          aws lambda update-function-code --function-name hireloop-migration-dev \
+            --image-uri "${REPO_URI}@${DIG}"
+          aws lambda wait function-updated --function-name hireloop-migration-dev
+          aws lambda invoke --function-name hireloop-migration-dev --cli-read-timeout 900 --payload '{}' migration-out.json
+          cat migration-out.json
+          STATUS=$(jq -r '.status // empty' migration-out.json)
+          if [ "$STATUS" != "ok" ]; then
+            echo "Migration failed"
+            exit 1
+          fi
+
+  deploy-sse:
+    needs: [determine-environment, migrate]
+    if: needs.migrate.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/hireloop-github-oidc
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Pull backend on SSE host
+        env:
+          AWS_REGION: ${{ env.AWS_REGION }}
+        run: |
+          set -euo pipefail
+          IID=$(aws ssm get-parameter --name /hireloop/dev/sse-instance-id --query Parameter.Value --output text)
+          REPO_URI=$(aws ssm get-parameter --name /hireloop/dev/ecr-repo-uri --query Parameter.Value --output text)
+          SHA="${{ needs.determine-environment.outputs.deploy_sha }}"
+          EC2_DIGEST=$(aws ecr describe-images --repository-name hireloop-backend --image-ids imageTag="${SHA}-ec2" --query 'imageDetails[0].imageDigest' --output text)
+          ECR_ROOT="${REPO_URI%/hireloop-backend}"
+          BE_IMAGE="${REPO_URI}@${EC2_DIGEST}"
+          CADDY_IMAGE="${ECR_ROOT}/hireloop-caddy:2-route53"
+          PARAMS=$(jq -n \
+            --arg r "$AWS_REGION" \
+            --arg e "$ECR_ROOT" \
+            --arg be "$BE_IMAGE" \
+            --arg cad "$CADDY_IMAGE" \
+            '{commands: [
+              "set -euo pipefail",
+              ("aws ecr get-login-password --region " + $r + " | docker login --username AWS --password-stdin " + $e),
+              ("echo BACKEND_IMAGE=" + $be + " > /etc/hireloop/bootstrap.env"),
+              ("echo CADDY_IMAGE=" + $cad + " >> /etc/hireloop/bootstrap.env"),
+              "set -a && source /etc/hireloop/bootstrap.env && set +a",
+              "docker compose -f /etc/hireloop/docker-compose.yml pull backend",
+              "docker compose -f /etc/hireloop/docker-compose.yml up -d"
+            ]}')
+          CMD_ID=$(aws ssm send-command --instance-ids "$IID" \
+            --document-name AWS-RunShellScript \
+            --parameters "$PARAMS" \
+            --query Command.CommandId --output text)
+          for i in $(seq 1 60); do
+            STATUS=$(aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "$IID" --query Status --output text 2>/dev/null || echo Pending)
+            if [ "$STATUS" = "Success" ]; then exit 0; fi
+            if [ "$STATUS" = "Failed" ] || [ "$STATUS" = "Cancelled" ] || [ "$STATUS" = "TimedOut" ]; then
+              aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "$IID"
+              exit 1
+            fi
+            sleep 5
+          done
+          exit 1
+
+  deploy-api:
+    needs: [determine-environment, migrate, deploy-sse, build-image]
+    if: |
+      needs.determine-environment.result == 'success' &&
+      needs.migrate.result == 'success' &&
+      needs.deploy-sse.result == 'success' &&
+      (needs.build-image.result == 'success' || needs.build-image.result == 'skipped')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/hireloop-github-oidc
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Update API Lambda image
+        run: |
+          set -euo pipefail
+          REPO_URI=$(aws ssm get-parameter --name /hireloop/dev/ecr-repo-uri --query Parameter.Value --output text)
+          if [ "${{ needs.build-image.result }}" = "skipped" ]; then
+            SHA="${{ needs.determine-environment.outputs.deploy_sha }}"
+            DIG=$(aws ecr describe-images --repository-name hireloop-backend --image-ids imageTag="${SHA}-lambda" --query 'imageDetails[0].imageDigest' --output text)
+          else
+            DIG="${{ needs.build-image.outputs.lambda_digest }}"
+          fi
+          aws lambda update-function-code --function-name hireloop-api-dev --image-uri "${REPO_URI}@${DIG}"
+          aws lambda wait function-updated --function-name hireloop-api-dev
+
+  smoke-test:
+    needs: [determine-environment, deploy-api]
+    if: needs.deploy-api.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Smoke
+        env:
+          DEV_SMOKE_TOKEN: ${{ secrets.DEV_SMOKE_TOKEN }}
+        run: |
+          set -euo pipefail
+          API=https://api.dev.hireloop.xyz
+          SSE=https://sse.dev.hireloop.xyz
+          curl -fsS --max-time 10 "$API/healthz"
+          curl -fsS --max-time 10 "$SSE/healthz"
+          curl -fsS --max-time 10 -H "Authorization: Bearer $DEV_SMOKE_TOKEN" "$API/api/v1/auth/me" \
+            | jq -e '.data.email == "smoke@hireloop.internal"'
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/hireloop-github-oidc
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Record last-green SHA
+        run: |
+          aws ssm put-parameter --name /hireloop/dev/last-green-sha \
+            --value "${{ needs.determine-environment.outputs.deploy_sha }}" --type String --overwrite

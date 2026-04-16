@@ -75,6 +75,10 @@ def create_app() -> FastAPI:
 
     register_error_handlers(app)
 
+    @app.get("/healthz")
+    async def healthz_probe() -> dict[str, str]:
+        return {"status": "ok"}
+
     app.include_router(health.router, prefix="/api/v1")
     app.include_router(auth.router, prefix="/api/v1")
     app.include_router(profile.router, prefix="/api/v1")

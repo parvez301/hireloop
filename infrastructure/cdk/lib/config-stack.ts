@@ -71,5 +71,16 @@ export class ConfigStack extends cdk.Stack {
       parameterName: `/hireloop/${env}/db/app-user`,
       stringValue: "hireloop_dev_app",
     });
+
+    new ssm.StringParameter(this, "LastGreenSha", {
+      parameterName: `/hireloop/${env}/last-green-sha`,
+      stringValue: "bootstrap",
+    });
+
+    new ssm.StringParameter(this, "CurrentImageTag", {
+      parameterName: `/hireloop/${env}/current-image-tag`,
+      stringValue: "bootstrap",
+      description: "Bootstrap placeholder; replace with real ECR tag before first HireLoop-App deploy",
+    });
   }
 }

@@ -257,16 +257,21 @@ async def _fake_redis_dependency() -> AsyncIterator[None]:
     """In-memory Redis so integration tests do not require redis-server."""
     from fakeredis import FakeAsyncRedis
 
-    from hireloop.api.deps import get_redis_client
+    from hireloop.api.deps import get_redis_client, get_redis_optional
 
     fake = FakeAsyncRedis(decode_responses=True)
 
     async def _override() -> FakeAsyncRedis:
         return fake
 
+    async def _override_optional() -> FakeAsyncRedis:
+        return fake
+
     app.dependency_overrides[get_redis_client] = _override
+    app.dependency_overrides[get_redis_optional] = _override_optional
     yield
     app.dependency_overrides.pop(get_redis_client, None)
+    app.dependency_overrides.pop(get_redis_optional, None)
 
 
 @pytest_asyncio.fixture

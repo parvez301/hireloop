@@ -1,6 +1,6 @@
 import pytest
 
-from hireloop.services.rate_limit import RateLimiter, RateLimitError
+from hireloop.services.rate_limit import InMemoryRateLimiter, RateLimiter, RateLimitError
 
 
 class FakeRedis:
@@ -40,3 +40,12 @@ async def test_rate_limiter_isolates_users():
     await limiter.check("user-b")
     with pytest.raises(RateLimitError):
         await limiter.check("user-a")
+
+
+@pytest.mark.asyncio
+async def test_in_memory_rate_limiter_allows_up_to_capacity():
+    limiter = InMemoryRateLimiter(capacity=3, refill_per_second=0.05)
+    for _ in range(3):
+        await limiter.check("user-1")
+    with pytest.raises(RateLimitError):
+        await limiter.check("user-1")

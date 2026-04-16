@@ -12,6 +12,7 @@ from hireloop.db import get_db
 from hireloop.integrations.cognito import CognitoJwtVerifier, get_verifier
 from hireloop.models.user import User
 from hireloop.services.auth import AuthUser, extract_auth_user
+from hireloop.services.rate_limit import InMemoryRateLimiter, RateLimiter, SupportsRateCheck
 from hireloop.services.subscription import ensure_subscription, is_entitled, utc_now
 
 DbSession = Annotated[AsyncSession, Depends(get_db)]
@@ -19,17 +20,58 @@ DbSession = Annotated[AsyncSession, Depends(get_db)]
 get_db_session = get_db
 
 _redis: Redis | None = None
+_in_memory_message_limiter_singleton: InMemoryRateLimiter | None = None
 
 
 async def get_redis_client() -> Redis:
     global _redis
+    settings = get_settings()
+    if not settings.redis_url.strip():
+        raise RuntimeError("REDIS_URL is not set")
     if _redis is None:
-        _redis = Redis.from_url(get_settings().redis_url, decode_responses=True)
+        _redis = Redis.from_url(settings.redis_url, decode_responses=True)
     return _redis
 
 
-RedisClient = Annotated[Redis, Depends(get_redis_client)]
+async def get_redis_optional() -> Redis | None:
+    if not get_settings().redis_url.strip():
+        return None
+    return await get_redis_client()
 
+
+def _message_rate_limiter_from_redis(redis: Redis) -> RateLimiter:
+    settings = get_settings()
+    cap = settings.agent_message_rate_limit_per_minute
+    return RateLimiter(
+        redis,
+        capacity=cap,
+        refill_per_second=cap / 60.0,
+        bucket_name="msg",
+    )
+
+
+def _get_in_memory_message_limiter() -> InMemoryRateLimiter:
+    global _in_memory_message_limiter_singleton
+    if _in_memory_message_limiter_singleton is None:
+        settings = get_settings()
+        cap = settings.agent_message_rate_limit_per_minute
+        _in_memory_message_limiter_singleton = InMemoryRateLimiter(
+            capacity=cap,
+            refill_per_second=cap / 60.0,
+            bucket_name="msg",
+        )
+    return _in_memory_message_limiter_singleton
+
+
+async def get_message_rate_limiter(
+    redis: Annotated[Redis | None, Depends(get_redis_optional)],
+) -> SupportsRateCheck:
+    if redis is None:
+        return _get_in_memory_message_limiter()
+    return _message_rate_limiter_from_redis(redis)
+
+
+RedisClient = Annotated[Redis, Depends(get_redis_client)]
 
 _DEV_BYPASS_TOKEN = "dev-bypass"
 

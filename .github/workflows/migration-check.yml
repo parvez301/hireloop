@@ -1,0 +1,41 @@
+name: Migration round-trip
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  alembic-round-trip:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: hireloop_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+      - name: Set up Python
+        run: uv python install 3.12
+      - name: Install dependencies
+        working-directory: backend
+        run: uv sync --all-extras --dev
+      - name: Alembic upgrade → downgrade -1 → upgrade
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/hireloop_test
+        run: |
+          set -euo pipefail
+          uv run alembic upgrade head
+          uv run alembic downgrade -1
+          uv run alembic upgrade head

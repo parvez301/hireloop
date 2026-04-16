@@ -1,17 +1,14 @@
 import * as cdk from "aws-cdk-lib";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
+import * as ssm from "aws-cdk-lib/aws-ssm";
 import { Construct } from "constructs";
 
 export interface NetworkStackProps extends cdk.StackProps {}
 
-/** Security group shells — ingress refined in 5a.2 compute. */
+/** Security groups for 5a.2 — EC2 SSE host + RDS only. */
 export interface HireLoopSecurityGroups {
-  readonly alb: ec2.SecurityGroup;
   readonly ec2Backend: ec2.SecurityGroup;
-  readonly lambda: ec2.SecurityGroup;
-  readonly dbBootstrap: ec2.SecurityGroup;
   readonly rds: ec2.SecurityGroup;
-  readonly fckNat: ec2.SecurityGroup;
 }
 
 export class NetworkStack extends cdk.Stack {
@@ -28,28 +25,11 @@ export class NetworkStack extends cdk.Stack {
       natGateways: 0,
       subnetConfiguration: [
         { name: "Public", subnetType: ec2.SubnetType.PUBLIC, cidrMask: 24 },
-        {
-          name: "PrivateEgress",
-          subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
-          cidrMask: 20,
-        },
-        {
-          name: "Isolated",
-          subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
-          cidrMask: 22,
-        },
       ],
     });
 
     this.vpc.addGatewayEndpoint("S3Endpoint", {
       service: ec2.GatewayVpcEndpointAwsService.S3,
-    });
-
-    const sgAlb = new ec2.SecurityGroup(this, "SgAlb", {
-      vpc: this.vpc,
-      securityGroupName: "hireloop-sg-alb",
-      description: "SG-ALB — ALB (5a.2)",
-      allowAllOutbound: true,
     });
 
     const sgEc2 = new ec2.SecurityGroup(this, "SgEc2Backend", {
@@ -58,47 +38,37 @@ export class NetworkStack extends cdk.Stack {
       description: "SG-EC2-Backend — SSE host (5a.2)",
       allowAllOutbound: true,
     });
-
-    const sgLambda = new ec2.SecurityGroup(this, "SgLambda", {
-      vpc: this.vpc,
-      securityGroupName: "hireloop-sg-lambda",
-      description: "SG-Lambda — Lambda ENIs (5a.2)",
-      allowAllOutbound: true,
-    });
-
-    const sgDbBootstrap = new ec2.SecurityGroup(this, "SgDbBootstrap", {
-      vpc: this.vpc,
-      securityGroupName: "hireloop-sg-db-bootstrap",
-      description: "SG-DbBootstrap — RDS bootstrap Lambda + custom resources",
-      allowAllOutbound: true,
-    });
+    sgEc2.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(443), "HTTPS (Caddy)");
+    sgEc2.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(80), "HTTP redirect / ACME");
 
     const sgRds = new ec2.SecurityGroup(this, "SgRds", {
       vpc: this.vpc,
       securityGroupName: "hireloop-sg-rds",
-      description: "SG-RDS — PostgreSQL",
+      description: "SG-RDS — PostgreSQL (5a.2 public + Lambda out-of-VPC)",
       allowAllOutbound: true,
     });
-
-    const sgFckNat = new ec2.SecurityGroup(this, "SgFckNat", {
-      vpc: this.vpc,
-      securityGroupName: "hireloop-sg-fck-nat",
-      description: "SG-FckNat — NAT instance (5a.2)",
-      allowAllOutbound: true,
-    });
-
-    sgRds.connections.allowFrom(sgDbBootstrap, ec2.Port.tcp(5432), "Bootstrap Lambda");
-    sgRds.connections.allowFrom(sgLambda, ec2.Port.tcp(5432), "Lambda (5a.2)");
-    sgRds.connections.allowFrom(sgEc2, ec2.Port.tcp(5432), "SSE EC2 (5a.2)");
+    sgRds.addIngressRule(sgEc2, ec2.Port.tcp(5432), "SSE EC2");
+    sgRds.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(5432), "Lambda (no stable egress IPs)");
 
     this.securityGroups = {
-      alb: sgAlb,
       ec2Backend: sgEc2,
-      lambda: sgLambda,
-      dbBootstrap: sgDbBootstrap,
       rds: sgRds,
-      fckNat: sgFckNat,
     };
+
+    new ssm.StringParameter(this, "ParamVpcId", {
+      parameterName: "/hireloop/shared/network/vpc-id",
+      stringValue: this.vpc.vpcId,
+    });
+    this.vpc.publicSubnets.forEach((subnet, i) => {
+      new ssm.StringParameter(this, `ParamPublicSubnet${i}`, {
+        parameterName: `/hireloop/shared/network/public-subnet-${i}-id`,
+        stringValue: subnet.subnetId,
+      });
+    });
+    new ssm.StringParameter(this, "ParamSgEc2BackendId", {
+      parameterName: "/hireloop/shared/network/sg-ec2-backend-id",
+      stringValue: sgEc2.securityGroupId,
+    });
 
     new cdk.CfnOutput(this, "VpcId", { value: this.vpc.vpcId });
   }

@@ -127,4 +127,6 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: CDK synth
         working-directory: infrastructure/cdk
+        env:
+          CI: "true"
         run: pnpm run synth

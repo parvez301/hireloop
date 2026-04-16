@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     database_pool_size: int = 10
     database_max_overflow: int = 20
 
-    redis_url: str
+    redis_url: str = ""
 
     aws_region: str = "us-east-1"
     aws_s3_bucket: str = "hireloop-dev-assets"
