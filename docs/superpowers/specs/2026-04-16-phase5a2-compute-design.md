@@ -1,0 +1,498 @@
+# Phase 5a.2 — Backend Compute Design
+
+> **Delta spec.** References the parent design doc at `docs/superpowers/specs/2026-04-10-careeragent-design.md` and the 5a.1 foundation at `docs/superpowers/specs/2026-04-13-phase5a1-infra-foundation-design.md`. Only specifies what 5a.2 adds, removes, or amends.
+
+**Goal:** Deploy the HireLoop backend to AWS `dev` for the first time. Stand up: Lambda-based stateless API behind CloudFront on `api.dev.hireloop.xyz`, EC2-based SSE backend on `sse.dev.hireloop.xyz`, a CDK-declared migration Lambda, and a 6-job GitHub Actions deploy workflow. Dogfood-ready after one manual `cdk deploy` + first workflow run.
+
+**Phase context:** 5a.2 within the Phase 5 (polish + deploy) umbrella. Consumes 5 stacks from 5a.1, adds a single new app-layer stack, and amends the 5a.1 Network + Data stacks. 5a.3 (async/pdf-render), 5a.4 (frontend CDN), and 5a.5 (CI/CD formalization) remain out of scope.
+
+**Definition of done:** Code merged to main, one manual `cdk deploy HireLoop-App-dev`, first green GitHub Actions workflow run against dev, smoke test passes against `api.dev.hireloop.xyz` + `sse.dev.hireloop.xyz`. Stack stays standing.
+
+---
+
+## 1. Locked Decisions
+
+| # | Decision | Rationale |
+|---|---|---|
+| D1 | Target **dev only** in 5a.2 (prod scoped to a later sub-phase) | Minimize blast radius of first deploy; prod adds approval gates + real keys that deserve separate attention. |
+| D2 | **CloudFront + Lambda FURL** for bounded API on `api.dev.hireloop.xyz` | Cheapest edge; FURL BUFFERED mode simpler than API Gateway; free tier covers dev traffic. |
+| D3 | **Direct A-record to EC2** on `sse.dev.hireloop.xyz` (not via CloudFront) | CloudFront 60s origin read timeout forces EventSource reconnects on long agent turns. Direct A record + Caddy + Let's Encrypt avoids the reconnect dance. |
+| D4 | **EC2 `t4g.small`** for SSE host | $12/mo flat vs Lambda GB-seconds compounding on 60-90s streaming turns. At ~10k MAU Lambda would cross into hundreds of $/mo. |
+| D5 | **Public RDS + Lambda out of VPC** (reverses 5a.1 §4.3) | Matches ShipRate pattern. Eliminates NAT cost. Trade-off: SG must open `5432/tcp` to `0.0.0.0/0` (Lambda has no stable egress ranges); access control reduces to `force_ssl=1` + strong app-user password + per-DB user isolation. See §3.1 for full rationale. |
+| D6 | **Drop fck-nat** (reverses 5a.1 D11) | Follows from D5. Saves ~$3/mo and removes a single-point-of-failure. |
+| D7 | **CDK-declared Migration Lambda** (1024 MB, `MIGRATION_MODE=true`, same image as API) | Mirrors ShipRate. GH Actions invokes it; CDK keeps it declared so redeploys get latest code via image update. |
+| D8 | **CDK-time secret injection** via `secretValueFromJson().unsafeUnwrap()` | Reverses my initial runtime-fetch proposal. Matches ShipRate, keeps handler code simple. Values appear in Lambda config + stack JSON — acceptable for dev; revisit before prod. |
+| D9 | **Single `HireLoop-App-dev` stack** (no Compute/Edge split) | YAGNI. Split later when 5a.4 grows Edge concerns. |
+| D10 | **6-job GH Actions workflow** — `determine-env → build-image → migrate → deploy-sse → deploy-api → smoke-test` | OIDC auth, matrix strategy scoped to `["dev"]`, 1-line change for prod. |
+| D11 | **Sequential deploy**: SSE before API | Fragile path (SSH + docker pull) fails early. Prevents partial deploys and matches rollback mental model. |
+| D12 | **Smoke test: shallow probes + `/auth/me` DB round-trip** | Catches 80% of real deployment failures (bad secrets, SG, migrations out of sync) in ~30s, without Anthropic spend. |
+| D13 | **Manual-only rollback** via `workflow_dispatch` with `rollback_to_sha` input | Dev cost of surprise auto-rollback > cost of 20min broken deploy. Prior green SHA tracked at SSM `/hireloop/dev/last-green-sha`. |
+| D14 | **Alembic round-trip CI check** on every PR | Fresh Postgres → `upgrade head` → `downgrade -1` → `upgrade head`. Enforces expand-contract rule before merge. |
+
+---
+
+## 2. Architecture Overview
+
+### Topology (dev)
+
+```
+                       Route53: hireloop.xyz (zone, 5a.1)
+                             |
+             +---------------+---------------+
+             |                               |
+  api.dev.hireloop.xyz              sse.dev.hireloop.xyz
+  (A ALIAS → CloudFront)            (A → EC2 EIP)
+             |                               |
+        CloudFront                      EC2 t4g.small
+   (CACHING_DISABLED,                (Caddy + Let's Encrypt,
+    ALL_VIEWER_EXCEPT_               uvicorn in docker,
+     HOST_HEADER forward)             public subnet, EIP)
+             |                               |
+     Lambda Function URL                     |
+     (BUFFERED, 900s timeout)                |
+             |                               |
+             +--------------+----------------+
+                            |
+                    RDS Postgres 16
+                  (PUBLIC subnet, SSL-only,
+                    SG: 5432 from 0.0.0.0/0
+                    + SG-EC2-Backend)
+```
+
+### What 5a.2 provisions (new `HireLoop-App-dev` stack)
+
+- **ECR repository** `hireloop-backend` (lifecycle: retain last 20)
+- **Lambda: `hireloop-api-dev`** — container image (Lambda base `public.ecr.aws/lambda/python:3.12`, ARM64), FURL BUFFERED, 900s timeout, 1024 MB, no VPC, secrets injected via env vars, concurrency reservation = 10
+- **Lambda: `hireloop-migration-dev`** — same image as API (different CMD), 1024 MB, no VPC, `MIGRATION_MODE=true`, 900s timeout
+- **EC2 `t4g.small` instance** — Amazon Linux 2023 ARM, EIP, in public subnet, SG-EC2-Backend, cloud-init installs Caddy + Docker + Compose. Runs a **separate image** (regular `python:3.12-slim` + uvicorn, ARM64, tagged `hireloop-backend:<sha>-ec2` in the same ECR repo). IAM instance profile grants SSM + ECR pull + Secrets Manager read.
+- **CloudFront distribution** — single origin (Lambda FURL), `CACHING_DISABLED`, `ALL_VIEWER_EXCEPT_HOST_HEADER` origin request policy, alternate domain `api.dev.hireloop.xyz`, ACM cert from 5a.1 SSM
+- **Route53 records** — `api.dev` → CloudFront alias, `sse.dev` → EC2 EIP A-record (replaces the 5a.1 placeholder `127.0.0.1`)
+- **SSM parameter** `/hireloop/dev/last-green-sha` — updated on smoke-test success
+- **IAM role `hireloop-github-oidc`** — trusts GitHub OIDC, scoped to this repo + dev environment, grants ECR push, Lambda update, SSM run-command, SSM param read/write
+
+### What 5a.2 does NOT provision
+
+- pdf-render compute — 5a.3
+- Inngest Cloud wiring (staying on current dev Inngest account) — 5a.3
+- Frontend CDN (user-portal + admin-ui) — 5a.4
+- Sandbox or prod environments — separate sub-phase (D1)
+- Backup vaults, WAF, observability stack, centralized logging — Phase 5b
+- ASG for SSE HA — prod concern, single EC2 accepted for dev
+
+---
+
+## 3. Amendments to 5a.1
+
+5a.2 changes, not adds. Must be called out explicitly because deployed 5a.1 resources will need CFN updates.
+
+### 3.1 NetworkStack amendments
+
+- **Drop `PrivateEgress` subnet tier** — Lambda now runs out-of-VPC.
+- **Drop `Isolated` subnet tier** — RDS moves to public.
+- **Drop SGs**: `SG-Lambda`, `SG-FckNat`, `SG-DbBootstrap`.
+- **Keep**: VPC, 2 public `/24` subnets, `SG-EC2-Backend`, `SG-RDS`, S3 gateway endpoint.
+- **Amend `SG-RDS` ingress**: `5432 from SG-EC2-Backend` (SSE host) + `5432 from 0.0.0.0/0` (Lambda out-of-VPC, no stable egress IPs).
+
+**On public-RDS access control (D5 trade-off):** SG opens `5432/tcp` to the internet because Lambda out-of-VPC has no stable egress ranges to pin. Access control reduces to (1) `rds.force_ssl=1` (TLS required), (2) `hireloop_dev_app` 32-char random password stored in Secrets Manager, (3) per-database user isolation — `dev_app` cannot `CONNECT` to `sandbox` or `prod` databases, (4) no master credential used by app code. Accepted risks: résumé PII exposure if app-user credentials leak, brute-force surface on `5432/tcp`. Before prod promotion, move RDS private and use IAM DB auth or attach Lambda to VPC. CloudTrail logging on the DB master secret is already on by default.
+
+### 3.2 DataStack amendments
+
+- **RDS `publiclyAccessible: true`** (was `false`).
+- **RDS `vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC }`** (was `PRIVATE_ISOLATED`).
+- **Add parameter group** with `rds.force_ssl=1`.
+- **Remove DbBootstrap custom resource** from isolated subnet path — it now runs out of VPC (no VPC config on the Lambda) and connects to the public RDS endpoint over TLS. Keep the custom resource itself — just drop the VPC config.
+- **Keep**: assets bucket, master secret, per-env app user secret, SSM parameters.
+
+### 3.3 ConfigStack amendments
+
+- **Add SSM parameter** `/hireloop/dev/last-green-sha` (initial value `"bootstrap"`, written by CDK, updated by smoke-test job).
+- **Add SSM parameter** `/hireloop/dev/ecr-repo-uri` — written by App stack after ECR creation. Needed by GH Actions for image tag.
+
+### 3.4 DNS stack — no changes
+
+Wildcard cert + hosted zone already cover both `api.dev.hireloop.xyz` and `sse.dev.hireloop.xyz`.
+
+---
+
+## 4. New Stack: `HireLoop-App-dev`
+
+Single stack, consumes 5a.1 outputs via SSM or stack-reference imports. Deployed after all 5a.1 stacks.
+
+### 4.1 Props shape
+
+```typescript
+interface AppStackProps extends cdk.StackProps {
+  readonly environment: 'dev';              // D1 — prod added in later sub-phase
+  readonly hostedZoneId: string;            // SSM: /hireloop/shared/dns/hosted-zone-id
+  readonly certificateArn: string;          // SSM: /hireloop/shared/dns/certificate-arn
+  readonly vpcId: string;                   // SSM: /hireloop/shared/network/vpc-id
+  readonly publicSubnetIds: string[];       // SSM: /hireloop/shared/network/public-subnet-ids
+  readonly sgEc2BackendId: string;          // SSM: /hireloop/shared/network/sg-ec2-backend-id
+  readonly dbEndpoint: string;              // SSM: /hireloop/dev/db/endpoint
+  readonly dbAppSecretArn: string;          // SSM: /hireloop/dev/db/app-secret-arn
+  readonly assetsBucketName: string;        // SSM: /hireloop/dev/s3/assets-bucket-name
+  readonly userPoolId: string;              // SSM: /hireloop/dev/cognito/user-pool-id
+  readonly userPoolClientId: string;        // SSM: /hireloop/dev/cognito/user-pool-client-id
+}
+```
+
+All cross-stack values come via SSM `StringParameter.valueForStringParameter()` — no hard CFN exports to avoid coupling.
+
+### 4.2 Resources
+
+**ECR repository**
+
+```typescript
+const ecr = new ecr.Repository(this, 'BackendRepo', {
+  repositoryName: 'hireloop-backend',
+  lifecycleRules: [{ maxImageCount: 20 }],
+  imageScanOnPush: true,
+});
+```
+
+**Lambda: API**
+
+```typescript
+const apiFn = new lambda.DockerImageFunction(this, 'ApiFn', {
+  functionName: `hireloop-api-${environment}`,
+  code: lambda.DockerImageCode.fromEcr(ecr, {
+    tagOrDigest: ssm.StringParameter.valueForStringParameter(
+      this, `/hireloop/${environment}/current-image-tag`,
+    ),
+  }),
+  memorySize: 1024,
+  timeout: cdk.Duration.minutes(15),
+  architecture: lambda.Architecture.ARM_64,
+  reservedConcurrentExecutions: 10,
+  environment: buildApiEnv(environment, props),   // see §5
+});
+const furl = apiFn.addFunctionUrl({
+  authType: lambda.FunctionUrlAuthType.NONE,
+  invokeMode: lambda.InvokeMode.BUFFERED,
+});
+```
+
+**Lambda: Migration**
+
+```typescript
+const migrationFn = new lambda.DockerImageFunction(this, 'MigrationFn', {
+  functionName: `hireloop-migration-${environment}`,
+  code: lambda.DockerImageCode.fromEcr(ecr, { tagOrDigest: /* same */ }),
+  memorySize: 1024,
+  timeout: cdk.Duration.minutes(15),
+  architecture: lambda.Architecture.ARM_64,
+  reservedConcurrentExecutions: 1,
+  environment: { ...buildMigrationEnv(environment, props), MIGRATION_MODE: 'true' },
+  cmd: ['hireloop.aws_lambda_adapter.migration_handler'],
+});
+```
+
+**Lambda container lifecycle:** the image uses `public.ecr.aws/lambda/python:3.12` as base; `awslambdaric` is the ENTRYPOINT. CMD selects the handler — `handler` for API, `migration_handler` for migrations. Both Lambdas share the same image; only CMD differs. This matches the Lambda runtime contract (long-lived process, per-invocation handler call), so no `entrypoint.sh` rewrite is needed for Lambda.
+
+`migration_handler(event, context)` shells out: `subprocess.run(["alembic", "upgrade", "head"], check=True, capture_output=True)`, then `alembic current` to capture head, returns `{"status": "ok", "head": "<rev>", "stdout": ..., "stderr": ...}`. On non-zero exit, returns `{"status": "failed", "stderr": ...}` and `raise` so Lambda reports a function error.
+
+**EC2 entrypoint (non-Lambda)** — `backend/scripts/entrypoint.sh` runs `alembic upgrade head` then `exec uvicorn hireloop.main:app --host 0.0.0.0 --port 8000`. No `MIGRATION_MODE` branching needed here because the SSE host only serves traffic — migrations run exclusively via the Migration Lambda.
+
+**EC2 SSE host**
+
+```typescript
+const sseInstance = new ec2.Instance(this, 'SseInstance', {
+  vpc,
+  vpcSubnets: { subnets: [publicSubnets[0]] },  // single AZ is fine for dev
+  securityGroup: sgEc2Backend,
+  instanceType: ec2.InstanceType.of(ec2.InstanceClass.BURSTABLE4_GRAVITON, ec2.InstanceSize.SMALL),
+  machineImage: ec2.MachineImage.latestAmazonLinux2023({ cpuType: ec2.AmazonLinuxCpuType.ARM_64 }),
+  userData: ec2.UserData.forLinux(),   // see below
+  ssmSessionPermissions: true,
+});
+const eip = new ec2.CfnEIP(this, 'SseEip');
+new ec2.CfnEIPAssociation(this, 'SseEipAssoc', {
+  instanceId: sseInstance.instanceId,
+  eip: eip.ref,
+});
+
+// IAM grants
+ecr.grantPull(sseInstance.role);
+apiSecretsList.forEach(s => s.grantRead(sseInstance.role));
+sseInstance.role.addManagedPolicy(
+  iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonSSMManagedInstanceCore'),
+);
+```
+
+**User-data** installs Docker, Caddy, Docker Compose, and writes `/etc/docker/compose.yml` + `/etc/caddy/Caddyfile`. Caddy config:
+
+```caddy
+sse.dev.hireloop.xyz {
+  reverse_proxy localhost:8000 {
+    flush_interval -1
+    transport http { read_timeout 900s }
+  }
+}
+```
+
+Let's Encrypt validation via **DNS-01 over Route53** (more reliable than HTTP-01; Caddy supports it natively with the right module). Caddy image needs to be `caddy:2-builder` + `caddy-dns/route53` plugin. Alternative: `ssm:dns-01-route53-creds` with an IAM user for DNS challenges. Chosen: dedicated IAM role attached to instance profile, Caddy reads via IMDSv2.
+
+**CloudFront distribution**
+
+```typescript
+const apiDist = new cloudfront.Distribution(this, 'ApiDist', {
+  defaultBehavior: {
+    origin: new origins.FunctionUrlOrigin(furl),
+    cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+    originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+    viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+    allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
+  },
+  domainNames: [`api.${environment}.hireloop.xyz`],
+  certificate: acm.Certificate.fromCertificateArn(this, 'Cert', certificateArn),
+  minimumProtocolVersion: cloudfront.SecurityPolicyProtocol.TLS_V1_2_2021,
+});
+```
+
+**Route53 records**
+
+```typescript
+new route53.ARecord(this, 'ApiAlias', {
+  zone,
+  recordName: `api.${environment}`,
+  target: route53.RecordTarget.fromAlias(new targets.CloudFrontTarget(apiDist)),
+});
+new route53.ARecord(this, 'SseAlias', {
+  zone,
+  recordName: `sse.${environment}`,
+  target: route53.RecordTarget.fromIpAddresses(eip.ref),
+});
+```
+
+**Last-green SHA param** (D13)
+
+```typescript
+new ssm.StringParameter(this, 'LastGreenSha', {
+  parameterName: `/hireloop/${environment}/last-green-sha`,
+  stringValue: 'bootstrap',      // CI overwrites on first smoke success
+});
+```
+
+---
+
+## 5. Secrets & Config (CDK-time injection)
+
+Per D8, secrets are read from Secrets Manager at **synth time** and injected as plain env vars into the Lambda. Backend code reads them via `os.environ` — no runtime AWS SDK calls to Secrets Manager.
+
+```typescript
+function buildApiEnv(env: string, props: AppStackProps): Record<string, string> {
+  const readJson = (path: string, key: string) =>
+    secretsmanager.Secret.fromSecretNameV2(this, `S-${path}`, path)
+      .secretValueFromJson(key).unsafeUnwrap();
+
+  return {
+    ENVIRONMENT: env,
+    DATABASE_URL: `postgresql+asyncpg://hireloop_${env}_app:${readJson(`hireloop/${env}/db-app-password`, 'password')}@${props.dbEndpoint}:5432/hireloop_${env}?ssl=require`,
+    REDIS_URL: '',  // Phase 5a.3 adds ElastiCache or drops redis dep
+    ANTHROPIC_API_KEY: readJson(`hireloop/${env}/anthropic-api-key`, 'key'),
+    GOOGLE_API_KEY: readJson(`hireloop/${env}/google-api-key`, 'key'),
+    STRIPE_SECRET_KEY: readJson(`hireloop/${env}/stripe-secret-key`, 'key'),
+    STRIPE_WEBHOOK_SECRET: readJson(`hireloop/${env}/stripe-webhook-secret`, 'key'),
+    PDF_RENDER_SHARED_SECRET: readJson(`hireloop/${env}/pdf-render-shared-secret`, 'key'),
+    INNGEST_EVENT_KEY: readJson(`hireloop/${env}/inngest-event-key`, 'key'),
+    INNGEST_SIGNING_KEY: readJson(`hireloop/${env}/inngest-signing-key`, 'key'),
+    COGNITO_USER_POOL_ID: props.userPoolId,
+    COGNITO_CLIENT_ID: props.userPoolClientId,
+    COGNITO_REGION: cdk.Stack.of(this).region,
+    COGNITO_JWKS_URL: `https://cognito-idp.${cdk.Stack.of(this).region}.amazonaws.com/${props.userPoolId}/.well-known/jwks.json`,
+    S3_ASSETS_BUCKET: props.assetsBucketName,
+    DISABLE_PAYWALL: 'false',
+    PDF_RENDER_URL: '',   // 5a.3
+  };
+}
+```
+
+**Known trade-off:** secret values appear in Lambda console env vars and in `cdk.out/*.template.json`. Acceptable for dev; prod will move to runtime fetch before promotion. Flagged in §8.
+
+**REDIS_URL note:** current backend uses Redis for rate limiting and SSE event storage. Phase 5a.2 ships with `REDIS_URL=""` and relies on the EC2 SSE host running Redis locally in its docker-compose. Lambda (API) code must handle absent Redis gracefully for rate limiting (fallback to in-memory per-instance limiter, documented as "not shared across Lambda warm containers"). If this surfaces as a dev blocker, 5a.3 adds ElastiCache t4g.micro.
+
+EC2 SSE host env comes from a separate `/etc/hireloop/env` file populated at user-data time by a small helper script that reads Secrets Manager at boot. Same variable names as Lambda. Rationale: EC2 has a stable identity (instance profile), runtime fetch is cheap and keeps secrets out of AMI/cloud-init logs.
+
+---
+
+## 6. GitHub Actions Deploy Workflow
+
+New file: `.github/workflows/deploy.yml`. OIDC auth, matrix strategy.
+
+### 6.1 Trigger
+
+```yaml
+on:
+  push: { branches: [main] }
+  workflow_dispatch:
+    inputs:
+      environment:
+        type: choice
+        options: [dev]              # D1 — prod added in later sub-phase
+        default: dev
+      rollback_to_sha:
+        description: 'Commit SHA to roll back to. Leave empty for normal deploy.'
+        required: false
+        type: string
+```
+
+### 6.2 Concurrency
+
+```yaml
+concurrency:
+  group: deploy-${{ github.event.inputs.environment || 'dev' }}
+  cancel-in-progress: false
+```
+
+### 6.3 Jobs (sequential per D11)
+
+| # | Job | Needs | Purpose |
+|---|---|---|---|
+| 1 | `determine-environment` | — | Resolves env from `inputs.environment` or defaults `dev`. Outputs `env`, `deploy_sha` (either `github.sha` or `inputs.rollback_to_sha`). |
+| 2 | `build-image` | 1 | `runs-on: ubuntu-24.04-arm` (native ARM64, no QEMU). Builds **two** images from the same Dockerfile via different target stages: `hireloop-backend:<sha>-lambda` (Lambda base) and `hireloop-backend:<sha>-ec2` (slim base). Pushes both to ECR. Skips if rollback (images already exist). Outputs `lambda_digest`, `ec2_digest`. |
+| 3 | `migrate` | 2 | Updates `hireloop-migration-dev` Lambda to `<sha>-lambda` image. Waits `aws lambda wait function-updated`. Invokes. Parses response JSON, fails if `status != "ok"`. 900s timeout. |
+| 4 | `deploy-sse` | 3 | SSM run-command on EC2 instance: `docker pull <ecr-uri>@<ec2_digest> && docker compose up -d`. Polls `aws ssm get-command-invocation` until status `Success`; fails if any other state. Uses digest, not tag, for reproducibility. |
+| 5 | `deploy-api` | 4 | Updates `hireloop-api-dev` Lambda to `<sha>-lambda` image (by digest). Waits `function-updated`. No invocation needed. |
+| 6 | `smoke-test` | 5 | Runs the 3-step smoke (§6.4). On success, writes `deploy_sha` to SSM `/hireloop/dev/last-green-sha`. |
+
+### 6.4 Smoke test (D12)
+
+```bash
+set -euo pipefail
+API=https://api.dev.hireloop.xyz
+SSE=https://sse.dev.hireloop.xyz
+
+curl -fsS --max-time 10 "$API/healthz"
+curl -fsS --max-time 10 "$SSE/healthz"
+curl -fsS --max-time 10 -H "Authorization: Bearer $DEV_SMOKE_TOKEN" "$API/auth/me" \
+  | jq -e '.user_id == "smoke-user"'
+```
+
+`DEV_SMOKE_TOKEN` stored in GH Actions org secret `DEV_SMOKE_TOKEN`. Token is a long-lived Cognito JWT for fixed test user `smoke@hireloop.internal` (created manually once via AWS console; documented in runbook).
+
+**On failure:** workflow marks job red, leaves deploy in place (D13). No auto-rollback.
+
+### 6.5 Rollback path
+
+Operator triggers `workflow_dispatch` with `rollback_to_sha=<prior-sha>`. Workflow:
+- `build-image` job sees rollback input, skips build.
+- `migrate` runs normally — migrations are backward-compatible (D14 guarantees this), so running an older `alembic upgrade head` is a no-op if DB is already at or ahead of that revision's head.
+- `deploy-sse` pulls old digest.
+- `deploy-api` updates Lambda to old image.
+- `smoke-test` validates.
+
+**Edge case:** if rollback target SHA's image was pruned from ECR (lifecycle rule = 20 images), workflow fails at `deploy-sse`. Mitigation: keep 20 images covering ~1-2 weeks of commits; manual `docker push` to rehydrate if needed.
+
+### 6.6 Required GH Actions org secrets
+
+| Secret | Purpose |
+|---|---|
+| `AWS_ACCOUNT_ID` | For OIDC role ARN construction |
+| `DEV_SMOKE_TOKEN` | Long-lived Cognito JWT for smoke test user |
+
+(No AWS keys — OIDC role assumed via `aws-actions/configure-aws-credentials@v4`.)
+
+### 6.7 Alembic round-trip CI check (D14)
+
+Separate workflow file: `.github/workflows/migration-check.yml`. Runs on every PR targeting `main`. Steps:
+
+1. Spin Postgres 16 service container.
+2. `uv run alembic upgrade head`
+3. `uv run alembic downgrade -1`
+4. `uv run alembic upgrade head`
+5. Exit 0.
+
+Fails PR if any step exits non-zero. Catches non-reversible migrations (a raw `DROP COLUMN` without a `downgrade()` body).
+
+---
+
+## 7. Cost Projection (dev)
+
+| Line item | ~$/mo |
+|---|---|
+| RDS t4g.small (public subnet, `force_ssl=1`) | $12 |
+| EC2 t4g.small (SSE, public subnet, EIP) | $12 |
+| Lambda (API container, no VPC) | $1 |
+| Lambda (Migration, no VPC) | ~$0 |
+| CloudFront (free tier covers 1M req/mo for dev) | ~$0 |
+| Secrets Manager (~7 secrets × $0.40/mo) | $2.80 |
+| Route53 hosted zone + queries | $0.50 |
+| ECR storage (~20 images × ~500MB × $0.10/GB/mo) | $1 |
+| **Total** | **~$29/mo** |
+
+Saves ~$22/mo vs the original 5a.1 ALB+fck-nat topology ($51/mo).
+
+---
+
+## 8. Divergences from Parent Design Spec
+
+Called out so a reader of `docs/superpowers/specs/2026-04-10-careeragent-design.md` isn't confused:
+
+1. **No ALB.** CloudFront replaces for API; direct A-record for SSE. Parent spec committed to a single `api.hireloop.xyz` origin via ALB path-based routing.
+2. **No NAT.** Public RDS + Lambda out of VPC. Parent spec implied private RDS.
+3. **No fck-nat.** Reverses 5a.1 D11.
+4. **RDS publicly accessible.** Reverses 5a.1 §4.3.
+5. **Dev-only explicit.** Prod scoped to a later sub-phase.
+6. **Single `HireLoop-App-dev` stack.** Parent spec implied per-concern stacks (Compute, Edge).
+7. **Split topology: two hostnames.** `api.dev.*` via CloudFront, `sse.dev.*` direct to EC2. Parent spec committed to single `api.*` origin.
+
+Each divergence reduces cost or scope for dev and is reversible when prod promotion happens.
+
+---
+
+## 9. Known Open Concerns (flagged, accepted for 5a.2)
+
+| Concern | Why accepted |
+|---|---|
+| Résumé PII in public RDS | TLS + strong password + per-env app user + CloudTrail audit on master secret. Acceptable for dev; prod moves RDS private with IAM DB auth or VPC-attached Lambda. |
+| Single-EC2 SSE = SPOF | Dev only. Prod adds ASG of 2 behind NLB or moves SSE to ECS Fargate. |
+| CDK-time secret injection leaks secrets to Lambda console + CFN templates | Documented in D8. Dev threat model: only repo collaborators + AWS account owners see these. Prod moves to runtime fetch. |
+| REDIS_URL empty means Lambda rate limiter is per-warm-container, not shared | In-memory fallback is correct for low dev traffic. 5a.3 adds ElastiCache if needed. |
+| Caddy + Let's Encrypt adds dependency on LE's rate limits | DNS-01 via Route53 is far more reliable than HTTP-01 for an EC2 behind a dynamic EIP. |
+| Lambda FURL lacks WAF/rate-limit | Acceptable for dev (low traffic); prod adds CloudFront WAF or moves to API Gateway with usage plans. |
+| No observability stack | Lambda + CloudWatch default logs only. Phase 5b adds structured logging, metrics dashboard, alerting. |
+
+---
+
+## 10. Testing
+
+### 10.1 Local / pre-deploy
+
+- `cd infrastructure/cdk && pnpm run synth` — must succeed with no errors or warnings.
+- `cd infrastructure/cdk && pnpm run typecheck` — `tsc --noEmit` green.
+- `cd backend && uv run alembic upgrade head && uv run alembic downgrade -1 && uv run alembic upgrade head` — local Alembic round-trip before push.
+- Backend test suite — 165 tests must stay green. No code paths in the backend should change for 5a.2 beyond the new `aws_lambda_adapter` module, the EC2 `entrypoint.sh`, and the in-memory rate-limit fallback.
+
+### 10.2 Post-deploy smoke (definition of done)
+
+- Smoke-test job passes (see §6.4).
+- Manual: open `https://api.dev.hireloop.xyz/docs` — FastAPI swagger renders.
+- Manual: `aws logs tail /aws/lambda/hireloop-api-dev --since 5m` shows no errors.
+- Manual: SSH via SSM Session Manager into SSE host, `docker ps` shows running backend container, `journalctl -u caddy` shows TLS cert obtained.
+- Manual: one authenticated `curl https://sse.dev.hireloop.xyz/conversations/<id>/stream` with a real Cognito token and confirm SSE events flow.
+
+---
+
+## 11. Rollout Checklist
+
+1. Merge this spec + plan to `main`.
+2. Populate 5a.1 secrets (`./scripts/populate-dev-secrets.sh`) — skip anything already present.
+3. Deploy 5a.1 amendments (Network + Data) if not already deployed with amendments: `cdk deploy HireLoop-Network HireLoop-Data`.
+4. First-time deploy `HireLoop-App-dev`: build image manually once, push to ECR with a placeholder tag, write `/hireloop/dev/current-image-tag` param, then `cdk deploy HireLoop-App-dev`. Subsequent deploys come from GH Actions.
+5. Create fixed Cognito smoke test user via AWS console; mint long-lived JWT; store as `DEV_SMOKE_TOKEN` org secret.
+6. Trigger GH Actions workflow manually (`workflow_dispatch` on `main`) to validate end-to-end.
+7. On green smoke: validate DNS resolution (`dig api.dev.hireloop.xyz`), Swagger load, single SSE turn. Mark DoD met.
+
+---
+
+## 12. What Changes in the Backend Code
+
+Minimal, contained in a single PR:
+
+- `backend/src/hireloop/aws_lambda_adapter.py` — new module. Two exports: `handler` (Mangum-wrapped FastAPI app for API Lambda) and `migration_handler` (subprocess shell-out to Alembic for Migration Lambda). ~40 lines.
+- `backend/Dockerfile` — multi-stage: a `lambda` target built `FROM public.ecr.aws/lambda/python:3.12` (ARM64, CMD defaults to `hireloop.aws_lambda_adapter.handler`), and an `ec2` target built `FROM python:3.12-slim` (ARM64, ENTRYPOINT `/app/scripts/entrypoint.sh`). Shared `builder` stage installs deps once. GH Actions `build-image` job builds both targets.
+- `backend/scripts/entrypoint.sh` — new file for EC2 only. `alembic upgrade head && exec uvicorn hireloop.main:app --host 0.0.0.0 --port 8000`. ~5 lines.
+- `backend/src/hireloop/core/rate_limit.py` — fallback to in-memory limiter when `REDIS_URL` is empty. ~15 lines. Document that this is per-warm-container on Lambda.
+- `backend/pyproject.toml` — add `mangum>=0.17` to dependencies.
+
+No changes to business logic, tests, or API contracts. All 165 backend tests must stay green.
