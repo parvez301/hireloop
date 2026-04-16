@@ -61,7 +61,7 @@
 
 ### What 5a.2 provisions (new `HireLoop-App-dev` stack)
 
-- **ECR repository** `hireloop-backend` (lifecycle: retain last 20)
+- **ECR repositories** — `hireloop-backend` (lifecycle: retain last 20 images; covers Lambda + EC2 backend tags) and `hireloop-caddy` (lifecycle: retain last 3 images; custom Caddy build rarely changes). Two repos — not one with tag prefixes — because ECR lifecycle rules count all tags in a repo and a `maxImageCount` of 20 would eventually evict the only Caddy image once backend deploys exceed 20. Separate repos is simpler than tag-prefix filters.
 - **Lambda: `hireloop-api-dev`** — container image (Lambda base `public.ecr.aws/lambda/python:3.12`, ARM64), FURL BUFFERED, 900s timeout, 1024 MB, no VPC, secrets injected via env vars, `reservedConcurrentExecutions: 10` (caps burst at 10 concurrent requests; intentional cost guardrail for dev, raise for prod)
 - **Lambda: `hireloop-migration-dev`** — same image as API (different CMD), 1024 MB, no VPC, `MIGRATION_MODE=true`, 900s timeout
 - **EC2 `t4g.small` instance** — Amazon Linux 2023 ARM, EIP, in public subnet, SG-EC2-Backend, cloud-init installs Caddy + Docker + Compose. Runs a **separate image** (regular `python:3.12-slim` + uvicorn, ARM64, tagged `hireloop-backend:<sha>-ec2` in the same ECR repo). IAM instance profile grants SSM + ECR pull + Secrets Manager read.
@@ -141,12 +141,18 @@ All cross-stack values come via SSM `StringParameter.valueForStringParameter()` 
 
 ### 4.2 Resources
 
-**ECR repository**
+**ECR repositories**
 
 ```typescript
-const ecr = new ecr.Repository(this, 'BackendRepo', {
+const backendRepo = new ecr.Repository(this, 'BackendRepo', {
   repositoryName: 'hireloop-backend',
   lifecycleRules: [{ maxImageCount: 20 }],
+  imageScanOnPush: true,
+});
+
+const caddyRepo = new ecr.Repository(this, 'CaddyRepo', {
+  repositoryName: 'hireloop-caddy',
+  lifecycleRules: [{ maxImageCount: 3 }],
   imageScanOnPush: true,
 });
 ```
@@ -336,8 +342,8 @@ function buildApiEnv(scope: Construct, env: string, props: AppStackProps): Recor
     INNGEST_SIGNING_KEY: readJson(`hireloop/${env}/inngest-signing-key`, 'key'),
     COGNITO_USER_POOL_ID: props.userPoolId,
     COGNITO_CLIENT_ID: props.userPoolClientId,
-    COGNITO_REGION: cdk.Stack.of(this).region,
-    COGNITO_JWKS_URL: `https://cognito-idp.${cdk.Stack.of(this).region}.amazonaws.com/${props.userPoolId}/.well-known/jwks.json`,
+    COGNITO_REGION: cdk.Stack.of(scope).region,
+    COGNITO_JWKS_URL: `https://cognito-idp.${cdk.Stack.of(scope).region}.amazonaws.com/${props.userPoolId}/.well-known/jwks.json`,
     S3_ASSETS_BUCKET: props.assetsBucketName,
     DISABLE_PAYWALL: 'false',
     PDF_RENDER_URL: '',   // 5a.3
@@ -512,7 +518,7 @@ Each divergence reduces cost or scope for dev and is reversible when prod promot
 - Smoke-test job passes (see §6.4).
 - Manual: open `https://api.dev.hireloop.xyz/docs` — FastAPI swagger renders.
 - Manual: `aws logs tail /aws/lambda/hireloop-api-dev --since 5m` shows no errors.
-- Manual: SSH via SSM Session Manager into SSE host, `docker ps` shows running backend container, `journalctl -u caddy` shows TLS cert obtained.
+- Manual: SSM Session Manager into SSE host. `docker compose -f /etc/hireloop/docker-compose.yml ps` shows `backend`, `caddy`, `redis` all `running`. `docker compose -f /etc/hireloop/docker-compose.yml logs caddy --tail=50` shows `certificate obtained successfully` for `sse.dev.hireloop.xyz`. Caddy runs in a container, **not** as an AL2023 systemd unit — `journalctl -u caddy` won't work.
 - Manual: one authenticated `curl https://sse.dev.hireloop.xyz/conversations/<id>/stream` with a real Cognito token and confirm SSE events flow.
 
 ---
@@ -522,10 +528,13 @@ Each divergence reduces cost or scope for dev and is reversible when prod promot
 1. Merge this spec + plan to `main`.
 2. Populate 5a.1 secrets (`./scripts/populate-dev-secrets.sh`) — skip anything already present.
 3. Deploy 5a.1 amendments (Network + Data) if not already deployed with amendments: `cdk deploy HireLoop-Network HireLoop-Data`.
-4. First-time deploy `HireLoop-App-dev`: build image manually once, push to ECR with a placeholder tag, write `/hireloop/dev/current-image-tag` param, then `cdk deploy HireLoop-App-dev`. Subsequent deploys come from GH Actions.
-5. Create fixed Cognito smoke test user via AWS console; mint long-lived JWT; store as `DEV_SMOKE_TOKEN` org secret.
-6. Trigger GH Actions workflow manually (`workflow_dispatch` on `main`) to validate end-to-end.
-7. On green smoke: validate DNS resolution (`dig api.dev.hireloop.xyz`), Swagger load, single SSE turn. Mark DoD met.
+4. **Deploy App stack shell first** (creates both ECR repos): `cdk deploy HireLoop-App-dev`. This will fail at the Lambda-image step because ECR has no images yet — that's expected.
+5. **Bootstrap Caddy image (one-time, manual):** `cd infrastructure/caddy && ./build-and-push.sh`. Script uses `xcaddy` to build a Caddy 2 binary with the `caddy-dns/route53` module, wraps it in a minimal Dockerfile, tags as `hireloop-caddy:2-route53`, pushes to the `hireloop-caddy` ECR repo. Rerun only when Caddy version bumps.
+6. **Bootstrap backend image (one-time, manual):** `docker buildx build --platform linux/arm64 --target lambda -t hireloop-backend:bootstrap-lambda ./backend && docker push ...` plus the `ec2` target. Write the resulting tag to `/hireloop/dev/current-image-tag` param.
+7. **Re-run `cdk deploy HireLoop-App-dev`** — now succeeds with real images.
+8. Create fixed Cognito smoke test user via AWS console; mint long-lived JWT; store as `DEV_SMOKE_TOKEN` org secret.
+9. Trigger GH Actions workflow manually (`workflow_dispatch` on `main`) to validate end-to-end.
+10. On green smoke: validate DNS resolution (`dig api.dev.hireloop.xyz`), Swagger load, single SSE turn. Mark DoD met.
 
 ---
 
@@ -538,5 +547,6 @@ Minimal, contained in a single PR:
 - `backend/scripts/entrypoint.sh` — new file for EC2 only. `alembic upgrade head && exec uvicorn hireloop.main:app --host 0.0.0.0 --port 8000`. ~5 lines.
 - `backend/src/hireloop/core/rate_limit.py` — fallback to in-memory limiter when `REDIS_URL` is empty. ~15 lines. Document that this is per-warm-container on Lambda.
 - `backend/pyproject.toml` — add `mangum>=0.17` to dependencies.
+- `infrastructure/caddy/` — new directory. `Dockerfile` uses `caddy:2-builder` xcaddy base, adds `github.com/caddy-dns/route53`, produces a minimal Alpine runtime image. `build-and-push.sh` tags + pushes to `hireloop-caddy:2-route53` ECR. Built once, rebuilt only on Caddy version bumps.
 
 No changes to business logic, tests, or API contracts. All 165 backend tests must stay green.
