@@ -40,12 +40,19 @@ function quoteIdent(name: string): string {
   return '"' + name.replace(/"/g, '""') + '"';
 }
 
+function quoteLiteral(value: string): string {
+  return "'" + value.replace(/'/g, "''") + "'";
+}
+
 async function ensureUser(client: Client, role: string, password: string): Promise<void> {
+  // PostgreSQL does not accept bind parameters for CREATE/ALTER USER ... WITH PASSWORD.
+  // The password must be an inlined string literal.
+  const pw = quoteLiteral(password);
   const r = await client.query("SELECT 1 FROM pg_roles WHERE rolname = $1", [role]);
   if (r.rowCount === 0) {
-    await client.query(`CREATE USER ${quoteIdent(role)} WITH PASSWORD $1`, [password]);
+    await client.query(`CREATE USER ${quoteIdent(role)} WITH PASSWORD ${pw}`);
   } else {
-    await client.query(`ALTER USER ${quoteIdent(role)} WITH PASSWORD $1`, [password]);
+    await client.query(`ALTER USER ${quoteIdent(role)} WITH PASSWORD ${pw}`);
   }
 }
 
