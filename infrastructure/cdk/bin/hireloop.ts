@@ -6,6 +6,7 @@ import { AuthStack } from "../lib/auth-stack";
 import { ConfigStack } from "../lib/config-stack";
 import { DataStack } from "../lib/data-stack";
 import { DnsStack } from "../lib/dns-stack";
+import { MarketingStack } from "../lib/marketing-stack";
 import { NetworkStack } from "../lib/network-stack";
 
 const app = new cdk.App();
@@ -14,7 +15,10 @@ const env = {
   region: process.env.CDK_DEFAULT_REGION ?? "us-east-1",
 };
 
-new DnsStack(app, "HireLoop-DNS", { env });
+const dns = new DnsStack(app, "HireLoop-DNS", { env });
+
+const marketing = new MarketingStack(app, "HireLoop-Marketing", { env });
+marketing.addDependency(dns);
 
 const network = new NetworkStack(app, "HireLoop-Network", { env });
 
