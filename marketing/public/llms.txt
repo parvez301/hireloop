@@ -1,0 +1,14 @@
+# HireLoop
+
+> AI-powered job search for anyone looking for their next role. Scans Greenhouse, Ashby, and Lever; evaluates jobs across 10 dimensions with an A–F grade; writes ATS-optimized résumés tailored to each job; preps interviews with a STAR story bank; generates negotiation playbooks. $4.99/month after a 3-day free trial.
+
+## Product
+- [Home](https://hireloop.xyz/): overview and features
+- [Pricing](https://hireloop.xyz/pricing): single plan — $4.99/month, cancel anytime
+
+## Legal
+- [Terms of Service](https://hireloop.xyz/terms)
+- [Privacy Policy](https://hireloop.xyz/privacy): HireLoop never trains AI on user data
+
+## Optional
+- [llms-full.txt](https://hireloop.xyz/llms-full.txt): full text of all pages

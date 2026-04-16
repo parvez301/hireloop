@@ -1,0 +1,229 @@
+# Home
+
+## Put your job search on autopilot
+
+**Spend your job hunt on interviews, not applications.**
+
+HireLoop scans hundreds of openings, ranks them against your actual experience, and hands you a tailored résumé for the ones worth applying to.
+
+- Primary CTA: Start 3-day free trial
+- Secondary CTA: How it works →
+- 3 days free · $4.99/mo · cancel anytime
+
+## Everything you need for a focused search
+
+### Job evaluation
+
+Paste any job link. Get an A–F grade across 10 dimensions — skills, comp, seniority, red flags — in under 10 seconds.
+
+### Résumé tailoring
+
+Upload your master résumé once. Every job gets its own ATS-optimized PDF, rewritten to match without inventing experience.
+
+### Job scanning
+
+Track 15 companies on Greenhouse, Ashby, and Lever. New openings are scored against your profile the moment they post.
+
+### Batch evaluation
+
+Drop hundreds of jobs in. Get "12 strong, 23 worth exploring, 165 skip" — sorted, reasoned, ready.
+
+### Interview prep
+
+A STAR story bank built from your real experience, plus role-specific questions with answer frameworks.
+
+### Negotiation playbooks
+
+Market range research, counter-offer scripts, and pushback tactics — ready the day an offer lands.
+
+## How it works
+
+### Step 1: Upload your master résumé.
+
+One time. HireLoop extracts your experience into structured data.
+
+### Step 2: Paste a job link or set up scanning.
+
+Greenhouse, Ashby, Lever, or any URL.
+
+### Step 3: Ask for what you need.
+
+"Evaluate this job." "Tailor my résumé." "Prep me for the interview." One chat. Six tools.
+
+## Pricing preview
+
+**One plan. $4.99/month. Cancel anytime.** Everything the agent does, no usage caps, 3-day free trial. (See full pricing →)
+
+## Questions
+
+### What happens during the free trial?
+
+Full access to everything — evaluations, résumé tailoring, scanning, batch, interview prep, negotiation. No credit card required to start. When the 3 days end, you'll see a paywall until you subscribe.
+
+### Do you train AI on my data?
+
+No. Your résumé, conversations, and job evaluations are never used to train or fine-tune any AI model. We use API providers (Anthropic, Google) with zero-retention settings enabled.
+
+### What job boards does scanning support?
+
+Greenhouse, Ashby, and Lever — which covers most modern tech and mid-market companies. We're adding more boards as users request them.
+
+### Can I cancel anytime?
+
+Yes. Cancellation is one click in the Stripe customer portal. You keep access until the end of your current billing period, then we stop charging.
+
+### What happens to my data if I delete my account?
+
+All personal data (résumé content, job evaluations, conversations) is deleted within 30 days. Aggregate, anonymized job listings stay in our shared scanning pool so future users benefit from dedup.
+
+## Final CTA
+
+**Stop applying. Start interviewing.** — Start 3-day free trial. No credit card to start.
+
+## Footer
+
+AI-powered job search.
+
+Nav: HireLoop · Pricing · Start free trial
+
+---
+
+# Pricing
+
+Single plan: **$4.99/mo**. CTA: **Start 3-day free trial**.
+
+## Included
+
+- Unlimited job evaluations
+- Tailored résumé PDFs
+- Job scanning (Greenhouse, Ashby, Lever)
+- Batch evaluation of hundreds of jobs at once
+- Interview prep + STAR story bank
+- Negotiation playbooks
+
+## Questions
+
+### Why $4.99?
+
+Priced to break even on typical usage. Heavy users cost us more; light users cost us less. We'd rather have you here than churn on price.
+
+### Is there an annual plan?
+
+Not yet. Monthly only while we're learning what usage looks like.
+
+### What counts as "unlimited"?
+
+All six features have no per-action caps during a subscription. We reserve the right to rate-limit abusive usage (thousands of requests per hour) but you'll never hit that in normal job-seeking.
+
+### Do you offer refunds?
+
+If something broke on our end in your first 30 days, email support@hireloop.xyz and we'll refund the month. Outside that, cancellation stops future charges.
+
+### I don't want to pay with Stripe.
+
+Stripe is the only payment processor we support. They handle card data; we don't store it.
+
+---
+
+# Terms of Service (markdown source)
+
+_Last updated: 2026-04-16_
+
+## Who we are
+
+HireLoop is operated by **[Company Name TBD at publish time]**. For legal questions, contact [legal@hireloop.xyz](mailto:legal@hireloop.xyz).
+
+## Using HireLoop
+
+You must be at least 18 years old to use HireLoop. You are responsible for the accuracy of information you upload (including your résumé and preferences). You agree not to use the service for illegal activity, to harass others, or to attempt to compromise our systems or other users' accounts.
+
+## The free trial
+
+HireLoop offers a **3-day free trial** with full access to product features. **No credit card is required to start.** When your trial ends, access to paid features is restricted until you subscribe.
+
+## Subscription and billing
+
+HireLoop is **$4.99 per month**, billed through **Stripe**. Subscriptions renew automatically until you cancel. **No refunds** except under the conditions described in the [Pricing FAQ](/pricing#faq) (see “Do you offer refunds?”).
+
+## Cancellation
+
+You may cancel anytime through the **Stripe customer portal** (linked from your account). You keep access through the end of your current billing period; we stop charging after that.
+
+## Termination
+
+We may suspend or terminate accounts that abuse the service—including spam, harmful automation, resource exhaustion, or illegal content. You may delete your account at any time from your in-app settings.
+
+## AI-generated content
+
+HireLoop produces evaluations, tailored résumés, interview prep, and related content using **AI models**. Outputs are **tools, not guarantees**. You are responsible for reviewing and validating anything you submit to employers or rely on in decisions.
+
+## Intellectual property
+
+You retain all rights to content you upload. We retain all rights to the HireLoop software, branding, and documentation.
+
+## Warranties and liability
+
+HireLoop is provided **“as is.”** We do not warrant that any job evaluation, résumé, or advice will result in interviews, offers, or any specific outcome. **Our total liability** for claims arising from the service is limited to **fees you paid us in the twelve (12) months** before the claim (unless applicable law requires otherwise).
+
+## Changes to these terms
+
+We may update these Terms. For **material changes**, we will email **active subscribers** at least **30 days** before the effective date when feasible.
+
+## Governing law
+
+These Terms are governed by the laws of **[Jurisdiction TBD at publish time]**, without regard to conflict-of-law rules, except where prohibited by law.
+
+
+---
+
+# Privacy Policy (markdown source)
+
+_Last updated: 2026-04-16_
+
+## What we collect
+
+- **Account data:** email and name (and similar identifiers you provide).
+- **Profile data:** résumé content, preferences, and related information you upload.
+- **Conversation data:** messages you send to the HireLoop agent.
+- **Billing metadata:** Stripe customer identifiers—we **do not** receive or store full card numbers (Stripe handles card data).
+
+## What we don't collect
+
+We do **not** collect precise location data for advertising, device fingerprints used for tracking, or advertising IDs. We do **not** sell your personal information.
+
+## How we use your data
+
+We use your data to **operate HireLoop** (evaluate jobs, tailor résumés, run scans, provide support) and to **maintain reliability** (logs, error monitoring, security). We do not use your data for unrelated marketing.
+
+## AI training
+
+**We do not train or fine-tune AI models on your data.** We use AI provider APIs (for example **Anthropic** and **Google**) configured with **zero-retention** settings where available, meaning providers do not retain your content to train models.
+
+## Sub-processors
+
+We use vendors to run the product, including (as applicable): **Stripe** (billing), **Anthropic** (Claude), **Google** (Gemini), **AWS** (hosting), and **Inngest** (background jobs). We use agreements appropriate to the services provided.
+
+## Your rights
+
+Depending on your location, you may have rights to **access**, **export**, **correct**, or **delete** your personal data. Contact [privacy@hireloop.xyz](mailto:privacy@hireloop.xyz). We aim to honor GDPR- and CCPA-style requests as a matter of practice regardless of jurisdiction.
+
+## Retention
+
+We retain account data while your account is active. If you delete your account, we delete personal data within **30 days**, except where we must retain limited records for legal compliance. **Anonymized aggregate job listing data** may be retained to support shared scanning deduplication.
+
+## Security
+
+We use **TLS** for data in transit and industry-standard protections for data at rest. Access to production systems is restricted and monitored.
+
+## Cookies
+
+We use **essential cookies** needed for sessions and security. We do not use tracking or advertising cookies on the marketing site as described in this policy.
+
+## Children
+
+HireLoop is not intended for anyone under **18**.
+
+## Contact
+
+Privacy questions: [privacy@hireloop.xyz](mailto:privacy@hireloop.xyz).
+
