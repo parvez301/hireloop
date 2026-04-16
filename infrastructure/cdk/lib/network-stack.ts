@@ -5,7 +5,7 @@ import { Construct } from "constructs";
 
 export interface NetworkStackProps extends cdk.StackProps {}
 
-/** Security groups for 5a.2 — EC2 SSE host + RDS only. */
+/** Security groups for 5a.2 - EC2 SSE host + RDS only. */
 export interface HireLoopSecurityGroups {
   readonly ec2Backend: ec2.SecurityGroup;
   readonly rds: ec2.SecurityGroup;
@@ -35,7 +35,7 @@ export class NetworkStack extends cdk.Stack {
     const sgEc2 = new ec2.SecurityGroup(this, "SgEc2Backend", {
       vpc: this.vpc,
       securityGroupName: "hireloop-sg-ec2-backend",
-      description: "SG-EC2-Backend — SSE host (5a.2)",
+      description: "SG-EC2-Backend - SSE host (5a.2)",
       allowAllOutbound: true,
     });
     sgEc2.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(443), "HTTPS (Caddy)");
@@ -44,7 +44,7 @@ export class NetworkStack extends cdk.Stack {
     const sgRds = new ec2.SecurityGroup(this, "SgRds", {
       vpc: this.vpc,
       securityGroupName: "hireloop-sg-rds",
-      description: "SG-RDS — PostgreSQL (5a.2 public + Lambda out-of-VPC)",
+      description: "SG-RDS - PostgreSQL (5a.2 public + Lambda out-of-VPC)",
       allowAllOutbound: true,
     });
     sgRds.addIngressRule(sgEc2, ec2.Port.tcp(5432), "SSE EC2");
