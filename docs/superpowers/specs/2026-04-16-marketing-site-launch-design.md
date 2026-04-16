@@ -66,7 +66,7 @@ These drive copy and layout. Source of truth in each case noted in parentheses.
 | `/terms` | `TermsPage` | Terms of Service — HireLoop |
 | `/privacy` | `PrivacyPage` | Privacy Policy — HireLoop |
 
-All four wrapped in a shared `<SiteLayout>` providing `<Nav>` at top and `<Footer>` at bottom. Per-route `<title>` handled via a manual `useEffect` shim in each page (avoids adding `react-helmet-async` for 4 routes).
+All four wrapped in a shared `<SiteLayout>` providing `<Nav>` at top and `<Footer>` at bottom. Per-route `<title>` and meta description are handled by each page calling `useDocumentTitle(title, description)` from `lib/useDocumentTitle.ts` — implemented with a `useEffect` that mutates `document.title` and the meta description tag in place (avoids adding `react-helmet-async` for 4 routes).
 
 ### File Layout
 
@@ -325,7 +325,7 @@ Tailwind defaults (`sm` 640, `md` 768, `lg` 1024). No custom breakpoints.
 - Feature grid: `grid-cols-1 md:grid-cols-2 lg:grid-cols-3`.
 - How it works: `grid-cols-1 md:grid-cols-3`.
 - Hero CTA row: `flex-col md:flex-row` with `gap-3`.
-- Nav: "Start free trial" button stays visible on mobile; "Pricing" link collapses into a hamburger menu on `sm` (simple CSS-only toggle via `<details>` — no JS dep).
+- Nav: below `md` (< 768px), the "Pricing" link collapses into a hamburger menu (simple CSS-only toggle via `<details>` — no JS dep); the "Start free trial" button stays visible at all breakpoints.
 
 ### No dark mode. No scroll animations.
 
@@ -365,7 +365,7 @@ Current file has stale `<title>CareerAgent — AI Career Assistant</title>`. Rep
 
 Each page calls `useDocumentTitle(title, description)` from `lib/useDocumentTitle.ts` on mount. Implementation sets `document.title` and updates the meta description tag in place. Values listed in the Routes table above.
 
-**SPA SEO limitation.** This is a client-rendered SPA, so crawlers that do not execute JavaScript (e.g., older social-card scrapers, some archival crawlers) will only see the home defaults in `index.html` for every route. Modern search engines (Google, Bing) render JS and will index per-route titles correctly. This is acceptable at launch given launch-minimum scope; if `/pricing` needs perfect non-JS indexing in the future, the options are (a) pre-rendering with `vite-plugin-ssr` or `@vitejs/plugin-legacy`, or (b) migrating to an SSR framework. Tracked as a post-launch consideration.
+**SPA SEO limitation.** This is a client-rendered SPA, so crawlers that do not execute JavaScript (e.g., older social-card scrapers, some archival crawlers) will only see the home defaults in `index.html` for every route. Modern search engines (Google, Bing) render JS and will index per-route titles correctly. This is acceptable at launch given launch-minimum scope; if `/pricing` needs perfect non-JS indexing in the future, the usual fix is static prerendering (e.g. `vite-plugin-prerender`, or migrate to Vike / an SSR framework). Tracked as a post-launch consideration.
 
 ### `public/robots.txt`
 
@@ -450,7 +450,7 @@ No other runtime deps. Dev deps get `@testing-library/react`, `@testing-library/
 
 All tests use Vitest + React Testing Library, mirroring user-portal's harness.
 
-"All tests pass" in the acceptance criteria below means every `test()` / `it()` case in every file passes — not "6 tests total." Each file will typically contain several assertions.
+"All tests pass" in the acceptance criteria below means `vitest run` exits 0 with every `test()` / `it()` case in every file passing. The six files below are the required coverage areas; each will typically contain several assertions.
 
 | Test file | Coverage |
 |---|---|
@@ -469,7 +469,7 @@ All tests use Vitest + React Testing Library, mirroring user-portal's harness.
 ### Must pass before merge
 - `npm run build` completes cleanly (Vite + tsc).
 - `npm run lint` (`tsc --noEmit`) clean.
-- `npm run test` passes (6 tests, all green).
+- `npm run test` (i.e. `vitest run`) exits 0 with every defined test case green.
 - Lighthouse manual check on the built preview: home hits 95+ on Performance, Accessibility, Best Practices, SEO (desktop).
 
 ### Accessibility gates
@@ -503,7 +503,8 @@ These are real needs but intentionally excluded from this spec to keep scope tig
 - [ ] `index.html` `<head>` updated with the replacement block above.
 - [ ] `marketing/.env.example` uses `VITE_USER_PORTAL_URL`.
 - [ ] `marketing/package.json` adds `marked` and a `test` script.
-- [ ] All 6 Vitest tests pass.
+- [ ] `vitest run` exits 0; every defined test case across the six required test files is green.
+- [ ] The Pricing page FAQ container renders with `id="faq"` so the `/pricing#faq` anchor from Terms §4 resolves.
 - [ ] `npm run build` + `npm run lint` clean.
 - [ ] Manual Lighthouse run on the preview build shows 95+ across all 4 categories (desktop).
 - [ ] Bracketed `[TBD]` items in terms/privacy (company name, jurisdiction) are resolved before publish (tracked in implementation plan as the gating item for the merge).
