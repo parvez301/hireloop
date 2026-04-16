@@ -62,7 +62,7 @@
 ### What 5a.2 provisions (new `HireLoop-App-dev` stack)
 
 - **ECR repository** `hireloop-backend` (lifecycle: retain last 20)
-- **Lambda: `hireloop-api-dev`** — container image (Lambda base `public.ecr.aws/lambda/python:3.12`, ARM64), FURL BUFFERED, 900s timeout, 1024 MB, no VPC, secrets injected via env vars, concurrency reservation = 10
+- **Lambda: `hireloop-api-dev`** — container image (Lambda base `public.ecr.aws/lambda/python:3.12`, ARM64), FURL BUFFERED, 900s timeout, 1024 MB, no VPC, secrets injected via env vars, `reservedConcurrentExecutions: 10` (caps burst at 10 concurrent requests; intentional cost guardrail for dev, raise for prod)
 - **Lambda: `hireloop-migration-dev`** — same image as API (different CMD), 1024 MB, no VPC, `MIGRATION_MODE=true`, 900s timeout
 - **EC2 `t4g.small` instance** — Amazon Linux 2023 ARM, EIP, in public subnet, SG-EC2-Backend, cloud-init installs Caddy + Docker + Compose. Runs a **separate image** (regular `python:3.12-slim` + uvicorn, ARM64, tagged `hireloop-backend:<sha>-ec2` in the same ECR repo). IAM instance profile grants SSM + ECR pull + Secrets Manager read.
 - **CloudFront distribution** — single origin (Lambda FURL), `CACHING_DISABLED`, `ALL_VIEWER_EXCEPT_HOST_HEADER` origin request policy, alternate domain `api.dev.hireloop.xyz`, ACM cert from 5a.1 SSM
@@ -106,7 +106,8 @@
 ### 3.3 ConfigStack amendments
 
 - **Add SSM parameter** `/hireloop/dev/last-green-sha` (initial value `"bootstrap"`, written by CDK, updated by smoke-test job).
-- **Add SSM parameter** `/hireloop/dev/ecr-repo-uri` — written by App stack after ECR creation. Needed by GH Actions for image tag.
+- **Add SSM parameter** `/hireloop/dev/ecr-repo-uri` — written by App stack after ECR creation (value: `<acct>.dkr.ecr.us-east-1.amazonaws.com/hireloop-backend`). Read by GH Actions for image tagging.
+- **Add SSM parameter** `/hireloop/dev/current-image-tag` — bootstrap-only. Written manually on first deploy (§11 step 4). **NOT read at steady state**: GH Actions updates Lambda code directly via `aws lambda update-function-code`, bypassing CDK. See §4.3 for the full ownership model.
 
 ### 3.4 DNS stack — no changes
 
@@ -189,9 +190,11 @@ const migrationFn = new lambda.DockerImageFunction(this, 'MigrationFn', {
 
 **Lambda container lifecycle:** the image uses `public.ecr.aws/lambda/python:3.12` as base; `awslambdaric` is the ENTRYPOINT. CMD selects the handler — `handler` for API, `migration_handler` for migrations. Both Lambdas share the same image; only CMD differs. This matches the Lambda runtime contract (long-lived process, per-invocation handler call), so no `entrypoint.sh` rewrite is needed for Lambda.
 
-`migration_handler(event, context)` shells out: `subprocess.run(["alembic", "upgrade", "head"], check=True, capture_output=True)`, then `alembic current` to capture head, returns `{"status": "ok", "head": "<rev>", "stdout": ..., "stderr": ...}`. On non-zero exit, returns `{"status": "failed", "stderr": ...}` and `raise` so Lambda reports a function error.
+`migration_handler(event, context)` shells out: `subprocess.run(["alembic", "upgrade", "head"], capture_output=True, text=True)`, then `alembic current` to capture head. **Always returns a JSON dict, never raises.** Shape: `{"status": "ok" | "failed", "head": "<rev>" | null, "stdout": "...", "stderr": "...", "returncode": <int>}`. The GH Actions `migrate` job parses `status` — treats `ok` as success, anything else as failure. No reliance on Lambda `FunctionError` semantics (which are awkward to detect from `aws lambda invoke` exit code).
 
-**EC2 entrypoint (non-Lambda)** — `backend/scripts/entrypoint.sh` runs `alembic upgrade head` then `exec uvicorn hireloop.main:app --host 0.0.0.0 --port 8000`. No `MIGRATION_MODE` branching needed here because the SSE host only serves traffic — migrations run exclusively via the Migration Lambda.
+**EC2 entrypoint (non-Lambda)** — `backend/scripts/entrypoint.sh` runs `alembic upgrade head` then `exec uvicorn hireloop.main:app --host 0.0.0.0 --port 8000`.
+
+**On double-upgrade:** the Migration Lambda is the authoritative migration path (invoked by CI before SSE/API deploy). EC2 `entrypoint.sh` also runs `alembic upgrade head` on every container start as a defense-in-depth safety net — this matters when the SSE host is restarted out of band (AWS instance reboot, manual `docker compose restart`) without a fresh CI run. Alembic `upgrade head` is idempotent: if the DB is already at head, it's a fast no-op (single query against `alembic_version`). Double-run is always safe.
 
 **EC2 SSE host**
 
@@ -219,18 +222,35 @@ sseInstance.role.addManagedPolicy(
 );
 ```
 
-**User-data** installs Docker, Caddy, Docker Compose, and writes `/etc/docker/compose.yml` + `/etc/caddy/Caddyfile`. Caddy config:
+**User-data** (cloud-init):
+1. Install Docker + Docker Compose plugin via `dnf`.
+2. Install SSM agent (pre-installed on Amazon Linux 2023, verify running).
+3. Write `/etc/hireloop/docker-compose.yml` and `/etc/hireloop/Caddyfile` from templates.
+4. `docker compose up -d` to bring up `backend` + `caddy` + `redis` containers.
+
+**Everything on the SSE host runs in containers — no native Caddy install.** The docker-compose services:
+
+| Service | Image | Role |
+|---|---|---|
+| `backend` | `<ecr>/hireloop-backend:<sha>-ec2` | uvicorn serving FastAPI on `:8000` |
+| `caddy` | `<ecr>/hireloop-caddy:2-route53` | TLS termination on `:443`, reverse-proxy to `backend:8000` |
+| `redis` | `redis:7-alpine` | Rate-limit counters + SSE event buffer (see §5 REDIS_URL note) |
+
+`Caddyfile`:
 
 ```caddy
 sse.dev.hireloop.xyz {
-  reverse_proxy localhost:8000 {
+  reverse_proxy backend:8000 {
     flush_interval -1
     transport http { read_timeout 900s }
+  }
+  tls {
+    dns route53
   }
 }
 ```
 
-Let's Encrypt validation via **DNS-01 over Route53** (more reliable than HTTP-01; Caddy supports it natively with the right module). Caddy image needs to be `caddy:2-builder` + `caddy-dns/route53` plugin. Alternative: `ssm:dns-01-route53-creds` with an IAM user for DNS challenges. Chosen: dedicated IAM role attached to instance profile, Caddy reads via IMDSv2.
+**Caddy + Route53 DNS-01:** the stock `caddy:2` image doesn't bundle DNS providers. We build a one-time custom image using [Caddy's xcaddy-based build](https://caddyserver.com/docs/build#xcaddy) with the `github.com/caddy-dns/route53` module, push it to ECR as `hireloop-caddy:2-route53`, and reference it from `docker-compose.yml`. Rebuild only when Caddy version changes. IAM: EC2 instance profile grants `route53:ChangeResourceRecordSets` + `route53:GetChange` on the `hireloop.xyz` hosted zone; Caddy picks up credentials via IMDSv2.
 
 **CloudFront distribution**
 
@@ -273,16 +293,34 @@ new ssm.StringParameter(this, 'LastGreenSha', {
 });
 ```
 
+### 4.3 Image-tag ownership (who writes what, when)
+
+| Param / resource | Owner (bootstrap) | Owner (steady state) | Read by |
+|---|---|---|---|
+| ECR repo `hireloop-backend` | CDK (creates) | CDK (immutable) | GH Actions push, CDK imports |
+| `/hireloop/dev/ecr-repo-uri` | CDK (writes on App stack first apply) | CDK (immutable) | GH Actions (tag construction) |
+| `/hireloop/dev/current-image-tag` | Operator (manual write before first `cdk deploy`) | **Unused** — see note | CDK synth → Lambda initial image |
+| Lambda `hireloop-api-dev` image | CDK (initial deploy) | GH Actions (`aws lambda update-function-code --image-uri <ecr>@<digest>`) | — |
+| Lambda `hireloop-migration-dev` image | CDK (initial deploy) | GH Actions | — |
+| EC2 container image | n/a (pulled on boot + on SSM run-command) | GH Actions (`docker pull` + restart) | EC2 at runtime |
+| `/hireloop/dev/last-green-sha` | CDK (seeds `"bootstrap"`) | GH Actions (writes after smoke-test) | Operator (rollback reference) |
+
+**Why `current-image-tag` is bootstrap-only:** CDK needs *some* image to stand up the Lambda on first apply. After that, `cdk deploy` would try to reset the Lambda to whatever `current-image-tag` points at — so we never run `cdk deploy HireLoop-App-dev` as part of the code-deploy workflow. Only run it for infra changes (new IAM, CloudFront config, etc.), and when doing so, first write the latest image tag to the param so `cdk deploy` is a no-op on Lambda code.
+
+**Alternative considered:** have GH Actions write to `current-image-tag` on every deploy, keep CDK and reality in sync, allow `cdk deploy` any time. Rejected because it makes the `aws lambda update-function-code` call optional (CDK could do it on next deploy), which splits "who deploys code" across two tools. The chosen model is simpler: **CDK owns infra, GH Actions owns code.**
+
 ---
 
 ## 5. Secrets & Config (CDK-time injection)
 
 Per D8, secrets are read from Secrets Manager at **synth time** and injected as plain env vars into the Lambda. Backend code reads them via `os.environ` — no runtime AWS SDK calls to Secrets Manager.
 
+**CDK note:** `buildApiEnv` below must run within a `Construct` scope (either a method on the Stack class or a function taking `scope: Construct` as first arg). The sketch uses `scope` explicitly to make that requirement obvious.
+
 ```typescript
-function buildApiEnv(env: string, props: AppStackProps): Record<string, string> {
+function buildApiEnv(scope: Construct, env: string, props: AppStackProps): Record<string, string> {
   const readJson = (path: string, key: string) =>
-    secretsmanager.Secret.fromSecretNameV2(this, `S-${path}`, path)
+    secretsmanager.Secret.fromSecretNameV2(scope, `S-${path}`, path)
       .secretValueFromJson(key).unsafeUnwrap();
 
   return {
@@ -309,7 +347,7 @@ function buildApiEnv(env: string, props: AppStackProps): Record<string, string> 
 
 **Known trade-off:** secret values appear in Lambda console env vars and in `cdk.out/*.template.json`. Acceptable for dev; prod will move to runtime fetch before promotion. Flagged in §8.
 
-**REDIS_URL note:** current backend uses Redis for rate limiting and SSE event storage. Phase 5a.2 ships with `REDIS_URL=""` and relies on the EC2 SSE host running Redis locally in its docker-compose. Lambda (API) code must handle absent Redis gracefully for rate limiting (fallback to in-memory per-instance limiter, documented as "not shared across Lambda warm containers"). If this surfaces as a dev blocker, 5a.3 adds ElastiCache t4g.micro.
+**REDIS_URL note:** current backend uses Redis for rate limiting and SSE event storage. Phase 5a.2 ships with `REDIS_URL=""` **for the Lambda only**; the EC2 SSE host runs Redis locally in docker-compose and its container's `REDIS_URL=redis://redis:6379/0` is set by the `/etc/hireloop/env` file. Lambda (API) code must handle absent Redis gracefully: rate limiter falls back to an in-memory per-warm-container limiter (documented as "not shared across Lambda invocations"). **Any code path that requires Redis for correctness must run on EC2, not Lambda** — at 5a.2 this is only the SSE event storage (already on EC2 by design). Rate limiting is the only shared-state feature affected, and dev traffic volume makes per-container limiting acceptable. If this surfaces as a blocker, 5a.3 adds ElastiCache `t4g.micro` and both Lambda + EC2 point at it.
 
 EC2 SSE host env comes from a separate `/etc/hireloop/env` file populated at user-data time by a small helper script that reads Secrets Manager at boot. Same variable names as Lambda. Rationale: EC2 has a stable identity (instance profile), runtime fetch is cheap and keeps secrets out of AMI/cloud-init logs.
 
@@ -365,8 +403,10 @@ SSE=https://sse.dev.hireloop.xyz
 curl -fsS --max-time 10 "$API/healthz"
 curl -fsS --max-time 10 "$SSE/healthz"
 curl -fsS --max-time 10 -H "Authorization: Bearer $DEV_SMOKE_TOKEN" "$API/auth/me" \
-  | jq -e '.user_id == "smoke-user"'
+  | jq -e '.data.email == "smoke@hireloop.internal"'
 ```
+
+**Response contract:** `/auth/me` returns `{"data": {"cognito_sub": "...", "email": "...", "name": "..."}, "meta": null}` per `backend/src/hireloop/schemas/user.py::UserResponse` wrapped in `Envelope[T]`. The smoke assertion must be updated in lockstep if the schema changes; treat the test as part of the API contract.
 
 `DEV_SMOKE_TOKEN` stored in GH Actions org secret `DEV_SMOKE_TOKEN`. Token is a long-lived Cognito JWT for fixed test user `smoke@hireloop.internal` (created manually once via AWS console; documented in runbook).
 
@@ -382,6 +422,8 @@ Operator triggers `workflow_dispatch` with `rollback_to_sha=<prior-sha>`. Workfl
 - `smoke-test` validates.
 
 **Edge case:** if rollback target SHA's image was pruned from ECR (lifecycle rule = 20 images), workflow fails at `deploy-sse`. Mitigation: keep 20 images covering ~1-2 weeks of commits; manual `docker push` to rehydrate if needed.
+
+**Caveat — DB downgrade is out of scope.** D14 forces expand-contract migrations at PR time, so rolling code back is almost always safe without a DB change. If a production incident ever requires an actual `alembic downgrade` (e.g., a dropped column whose data must be restored), this workflow does not do it. That path is an operational runbook that pairs manual `alembic downgrade` with a point-in-time-restore of the RDS snapshot, written separately when prod lands.
 
 ### 6.6 Required GH Actions org secrets
 
@@ -408,6 +450,8 @@ Fails PR if any step exits non-zero. Catches non-reversible migrations (a raw `D
 
 ## 7. Cost Projection (dev)
 
+All figures **approximate** — list prices as of 2026-04, us-east-1, solo dev traffic patterns. Real monthly bills will drift based on data transfer, CloudFront edge cache misses, and request volume. Do not budget to the dollar from this table.
+
 | Line item | ~$/mo |
 |---|---|
 | RDS t4g.small (public subnet, `force_ssl=1`) | $12 |
@@ -420,7 +464,7 @@ Fails PR if any step exits non-zero. Catches non-reversible migrations (a raw `D
 | ECR storage (~20 images × ~500MB × $0.10/GB/mo) | $1 |
 | **Total** | **~$29/mo** |
 
-Saves ~$22/mo vs the original 5a.1 ALB+fck-nat topology ($51/mo).
+Saves ~$22/mo vs the original 5a.1 ALB+fck-nat topology (~$51/mo).
 
 ---
 
