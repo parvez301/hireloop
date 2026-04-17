@@ -24,10 +24,11 @@ interface LambdaEnvContext {
 }
 
 function buildApiEnv(scope: Construct, env: string, props: LambdaEnvContext): Record<string, string> {
+  // Use SecretValue.secretsManager (name-based CFN dynamic ref) rather than
+  // Secret.fromSecretNameV2().secretValueFromJson(), which generates an ARN
+  // without the random suffix and fails at deploy time with "secret not found".
   const readJson = (path: string, key: string) =>
-    secretsmanager.Secret.fromSecretNameV2(scope, `S-${path.replace(/[^a-zA-Z0-9]/g, "-")}`, path)
-      .secretValueFromJson(key)
-      .unsafeUnwrap();
+    cdk.SecretValue.secretsManager(path, { jsonField: key }).unsafeUnwrap();
 
   const region = cdk.Stack.of(scope).region;
   return {
@@ -105,17 +106,12 @@ export class AppStack extends cdk.Stack {
       `/hireloop/${env}/current-image-tag`,
     );
 
-    const backendRepo = new ecr.Repository(this, "BackendRepo", {
-      repositoryName: "hireloop-backend",
-      lifecycleRules: [{ maxImageCount: 20 }],
-      imageScanOnPush: true,
-    });
-
-    const caddyRepo = new ecr.Repository(this, "CaddyRepo", {
-      repositoryName: "hireloop-caddy",
-      lifecycleRules: [{ maxImageCount: 3 }],
-      imageScanOnPush: true,
-    });
+    // ECR repos are managed outside this stack (via infrastructure/scripts/
+    // ensure-ecr-repos.sh) so that rollback of App-dev doesn't delete images
+    // or leave orphan repos that block redeploy. Lifecycle + scan config are
+    // set at repo-creation time by that script.
+    const backendRepo = ecr.Repository.fromRepositoryName(this, "BackendRepo", "hireloop-backend");
+    const caddyRepo = ecr.Repository.fromRepositoryName(this, "CaddyRepo", "hireloop-caddy");
 
     new ssm.StringParameter(this, "EcrBackendRepoUri", {
       parameterName: `/hireloop/${env}/ecr-repo-uri`,
@@ -132,7 +128,9 @@ export class AppStack extends cdk.Stack {
       memorySize: 1024,
       timeout: cdk.Duration.minutes(15),
       architecture: lambda.Architecture.ARM_64,
-      reservedConcurrentExecutions: 10,
+      // reservedConcurrentExecutions omitted: fresh AWS accounts have a 10
+      // concurrency cap and reserving any amount would leave 0 unreserved
+      // (< 10 required). Restore the cap once account quota > 100 is granted.
       environment: lambdaEnv,
     });
 
@@ -144,7 +142,6 @@ export class AppStack extends cdk.Stack {
       memorySize: 1024,
       timeout: cdk.Duration.minutes(15),
       architecture: lambda.Architecture.ARM_64,
-      reservedConcurrentExecutions: 1,
       environment: { ...lambdaEnv, MIGRATION_MODE: "true" },
     });
     const migrationCfn = migrationFn.node.defaultChild as lambda.CfnFunction;
