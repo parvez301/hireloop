@@ -270,6 +270,27 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 **Deferred apt packages:** `libgdk-pixbuf-2.0-0` (raster image decoding for `<img>` tags and CSS `background-image`) is **not** included. The current resume.html + cover_letter.html have no images. Add it if and when a template embeds raster images via data URL or file:// URL.
 
+**Fontconfig cache (Lambda-specific gotcha):** WeasyPrint via Pango needs a writable fontconfig cache. Lambda's `$HOME` is read-only; only `/tmp` is writable at runtime. Bake the cache at image build time and point fontconfig at a known location so cold starts don't regenerate it:
+
+```dockerfile
+ENV XDG_CACHE_HOME=/tmp/fontconfig
+RUN mkdir -p /tmp/fontconfig && fc-cache -f
+```
+
+Without this, the first render on a cold Lambda will either fail silently (fonts fall back to a default sans-serif) or emit a fontconfig warning to CloudWatch. This is the single most common "works in docker-compose, fonts look wrong in Lambda" failure mode for WeasyPrint — don't skip it.
+
+**Font files in the Python package:** The 4 `.woff2` files (~200 KB) will live under `backend/src/hireloop/core/cv_optimizer/templates/fonts/`. Both fonts are Open Font License (OFL) so bundling is licensed. **But:** `pyproject.toml` must include these files in package data, otherwise an sdist install drops them. Add to `pyproject.toml`:
+
+```toml
+[tool.hatch.build.targets.wheel]
+packages = ["src/hireloop"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/hireloop/core/cv_optimizer/templates" = "hireloop/core/cv_optimizer/templates"
+```
+
+(Or the equivalent for whichever build backend `pyproject.toml` declares — confirm during implementation.)
+
 ## 8. Python dependency changes
 
 Add to `backend/pyproject.toml`:
@@ -290,8 +311,8 @@ Run `uv lock` to refresh `uv.lock`.
 - `test_render_pdf_with_unicode` — markdown with emoji, accented chars, CJK → no exceptions, bytes are valid PDF
 - `test_render_pdf_multi_page` — long markdown → `page_count ≥ 2`
 - `test_render_pdf_cover_letter_template` — both template literals resolve and render
-- `test_render_pdf_uploads_to_s3` — `moto`-mocked S3, assert `put_object` called with the correct `bucket`, `key`, and `body`
-- `test_render_pdf_raises_on_template_not_found` — bogus template name → `PdfRenderError`
+- `test_render_pdf_uploads_to_s3` — `moto`-mocked S3, assert `put_object` called with the correct `bucket`, `key`, and `body`. **Test fixture gotcha:** `StorageService` caches a boto3 client at construct time via `get_s3_client()`, which itself reads settings at module import. The test must start the moto mock **before** the first `get_storage_service()` call and reset both `get_s3_client.cache_clear()` and `get_settings.cache_clear()` (both `@lru_cache`-decorated) in a fixture. Pattern should mirror whatever existing moto-based tests in `backend/tests/` do for S3.
+- `test_render_pdf_raises_on_template_not_found` — bogus template name → `PdfRenderError`; assert `e.details["template"] == "<bogus_name>"` so the error-details contract is under test, not just the exception type
 
 **Deleted:**
 - `backend/tests/unit/test_pdf_render_client.py`
@@ -309,6 +330,8 @@ No integration tests against real AWS; `moto` is already in the backend dev deps
 
 **Config edits:**
 - `backend/src/hireloop/config.py` — remove `pdf_render_url`, `pdf_render_api_key`, `pdf_render_timeout_s` settings
+- `backend/tests/conftest.py:41` — remove the stale `os.environ.setdefault("PDF_RENDER_URL", "http://localhost:4000")` line
+- `backend/src/hireloop/core/cv_optimizer/__init__.py:1` — update docstring (currently `"""CV optimizer module — Claude rewriter + pdf-render client + service."""`) to drop the `pdf-render client` phrase
 - `backend/.env.example` — remove `PDF_RENDER_URL`, `PDF_RENDER_API_KEY` lines
 - `pdf-render/.env.example` — deleted with workspace
 - `infrastructure/.env.deploy.local.example` — remove `PDF_RENDER_SHARED_SECRET` line
@@ -317,8 +340,22 @@ No integration tests against real AWS; `moto` is already in the backend dev deps
 - `infrastructure/cdk/lib/config-stack.ts` — remove the `pdf-render-shared-secret` Secret construct + related SSM params
 - `infrastructure/cdk/lib/app-stack.ts` — remove `PDF_RENDER_SHARED_SECRET` from `buildApiEnv`; remove `PDF_RENDER_URL: ''` placeholder (lines 340, 349 per grep)
 - `docker-compose.yml` — remove the `pdf-render` service and any references in other services' `depends_on`
+- `Justfile:63` — update `up` target comment (currently mentions `pdf-render`)
 - `pnpm-workspace.yaml` — remove `"pdf-render"` entry
 - Root `package.json` — remove any workspace references to `pdf-render`
+
+**CI workflow edits (critical — removing workspace without this will break CI):**
+- `.github/workflows/ci.yml` — in the `test-node` job, remove:
+  - the "Cache Playwright browsers" step (`actions/cache@v4` with `~/.cache/ms-playwright`)
+  - the "Install Playwright (Chromium + system deps)" step (`pnpm exec playwright install --with-deps chromium` in `pdf-render`)
+  - the "Test pdf-render (Playwright API)" step (`pnpm test` in `pdf-render`)
+  - Total: ~15 lines around lines 97-112 at current HEAD
+
+**Dependency-injection seam (matters for the refactor, not just cleanup):**
+- `backend/src/hireloop/core/cv_optimizer/service.py:35` — the `CvOptimizerContext` dataclass has a `render_client: PdfRenderClient | None = None` field; delete the field
+- `service.py:42` — `self.render_client = context.render_client or get_pdf_render_client()` — delete the line (the `CvOptimizerService` no longer needs its own render client reference)
+- `service.py:91` — replace `await self.render_client.render(...)` with `await render_pdf(...)` (per §5 caller change). Drop the `str(self.context.user_id)` cast since the new signature takes `UUID` directly.
+- Any existing tests that construct `CvOptimizerContext(render_client=fake)` to inject a stub will break silently (unknown kwarg). Audit `backend/tests/` for that pattern and either remove the kwarg or replace with a `monkeypatch.setattr` on `pdf_renderer.render_pdf`.
 
 **Post-merge, post-deploy AWS cleanup:**
 - `aws secretsmanager delete-secret --secret-id hireloop/dev/pdf-render-shared-secret --recovery-window-in-days 7`
