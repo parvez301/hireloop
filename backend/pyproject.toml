@@ -31,6 +31,9 @@ dependencies = [
     "inngest>=0.4,<0.5",
     "markdownify>=0.13,<0.14",
     "mangum>=0.17,<0.20",
+    "weasyprint>=63,<64",
+    "markdown-it-py>=3,<4",
+    "jinja2>=3.1,<4",
 ]
 
 [project.optional-dependencies]
@@ -76,7 +79,18 @@ warn_unused_configs = true
 disallow_untyped_defs = true
 
 [[tool.mypy.overrides]]
-module = ["boto3.*", "botocore.*", "docx.*", "pypdf.*", "stripe.*", "inngest.*", "markdownify", "mangum"]
+module = [
+    "boto3.*",
+    "botocore.*",
+    "docx.*",
+    "pypdf.*",
+    "stripe.*",
+    "inngest.*",
+    "markdownify",
+    "mangum",
+    "weasyprint.*",
+    "markdown_it.*",
+]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
@@ -105,3 +119,13 @@ dev = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/hireloop"]
+artifacts = [
+    "src/hireloop/core/cv_optimizer/templates/**/*.html",
+    "src/hireloop/core/cv_optimizer/templates/**/*.woff2",
+]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/hireloop/**/*.html",
+    "src/hireloop/**/*.woff2",
+]
