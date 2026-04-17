@@ -86,11 +86,11 @@ from pathlib import Path
 from typing import Literal
 from uuid import UUID
 
-from jinja2 import Environment, FileSystemLoader, select_autoescape
+from jinja2 import Environment, FileSystemLoader, TemplateNotFound, select_autoescape
 from markdown_it import MarkdownIt
 from weasyprint import HTML
 
-from hireloop.integrations.s3 import put_object
+from hireloop.services.storage import get_storage_service
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 
@@ -120,26 +120,42 @@ async def render_pdf(
     *,
     markdown: str,
     template: Literal["resume", "cover_letter"],
-    user_id: UUID,
+    user_id: UUID,  # retained for symmetry with the old HTTP API; see §13
     output_key: str,
-    bucket: str,
 ) -> RenderResult:
     start = datetime.now(timezone.utc)
     try:
         html_body = _md.render(markdown)
-        html_doc = _env.get_template(f"{template}.html").render(
-            body=html_body,
-            generated_at=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
-        )
+    except Exception as e:
+        raise PdfRenderError(f"markdown parse failed: {e}", details={"cause": repr(e)}) from e
+
+    try:
+        tmpl = _env.get_template(f"{template}.html")
+    except TemplateNotFound as e:
+        raise PdfRenderError(
+            f"template not found: {template}",
+            details={"template": template, "cause": repr(e)},
+        ) from e
+
+    html_doc = tmpl.render(
+        body=html_body,
+        generated_at=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+    )
+
+    try:
         pdf_bytes, page_count = await asyncio.to_thread(_render_sync, html_doc)
     except Exception as e:
-        raise PdfRenderError(f"WeasyPrint render failed: {e}") from e
+        raise PdfRenderError(
+            f"WeasyPrint render failed: {e}",
+            details={"cause": repr(e), "template": template},
+        ) from e
 
-    await put_object(bucket=bucket, key=output_key, body=pdf_bytes, content_type="application/pdf")
+    storage = get_storage_service()
+    await storage.upload_bytes(output_key, pdf_bytes, content_type="application/pdf")
     elapsed_ms = int((datetime.now(timezone.utc) - start).total_seconds() * 1000)
     return RenderResult(
         s3_key=output_key,
-        s3_bucket=bucket,
+        s3_bucket=storage.bucket,
         page_count=page_count,
         size_bytes=len(pdf_bytes),
         render_ms=elapsed_ms,
@@ -153,9 +169,11 @@ def _render_sync(html_doc: str) -> tuple[bytes, int]:
 ```
 
 **Key decisions inside the module:**
+- **S3 uploads go through `StorageService.upload_bytes`** (in `backend/src/hireloop/services/storage.py`) rather than a new helper in `integrations/s3.py`. `StorageService` already wraps `put_object` with `asyncio.to_thread` and applies `ServerSideEncryption="AES256"`; reusing it preserves that invariant. The bucket is owned by `StorageService` so callers don't pass it.
 - `asyncio.to_thread` wraps the sync WeasyPrint call so it doesn't block the event loop
-- `PdfRenderError` is preserved (same class name) so the API layer's `PDF_RENDER_FAILED` 502 mapping in `backend/src/hireloop/api/cv_outputs.py` continues to work unchanged
-- Markdown parser is module-scope singleton; Jinja env uses `FileSystemLoader` rooted at `TEMPLATES_DIR`
+- `PdfRenderError` is preserved (same class name, same `details` contract) so the API layer's `PDF_RENDER_FAILED` 502 mapping in `backend/src/hireloop/api/cv_outputs.py:51,83` continues to work unchanged. Every raise site attaches structured `details` (template name, repr of underlying exception) to preserve debuggability parity with the old HTTP client.
+- `TemplateNotFound` from Jinja is explicitly caught and remapped to `PdfRenderError` so the test rule (`test_render_pdf_raises_on_template_not_found`) is unambiguous.
+- Markdown parser and Jinja env are module-scope singletons
 - `base_url=str(TEMPLATES_DIR)` makes relative `url("fonts/...")` references in the CSS resolve to the packaged fonts
 
 **Caller change** — `backend/src/hireloop/core/cv_optimizer/service.py` currently imports `PdfRenderClient` from `render_client`. Update to:
@@ -169,7 +187,6 @@ render_result = await render_pdf(
     template="resume",
     user_id=user_id,
     output_key=pdf_key,
-    bucket=settings.s3_bucket,
 )
 ```
 
@@ -251,6 +268,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 **Cold start impact:** negligible (<100 ms). These libraries are lightweight and the font files are read lazily on first render.
 
+**Deferred apt packages:** `libgdk-pixbuf-2.0-0` (raster image decoding for `<img>` tags and CSS `background-image`) is **not** included. The current resume.html + cover_letter.html have no images. Add it if and when a template embeds raster images via data URL or file:// URL.
+
 ## 8. Python dependency changes
 
 Add to `backend/pyproject.toml`:
@@ -310,12 +329,15 @@ No integration tests against real AWS; `moto` is already in the backend dev deps
 1. Add `weasyprint` + `markdown-it-py` to `backend/pyproject.toml`; run `uv lock`
 2. Create `pdf_renderer.py` with the full module above
 3. `git mv pdf-render/src/templates backend/src/hireloop/core/cv_optimizer/templates` to preserve history
-4. Apply the 3 edits to `resume.html`
+4. Apply the 2 edits to `resume.html` (§6.1)
 5. Write `cover_letter.html` (first-pass)
 6. Write `test_pdf_renderer.py` (the 6 tests above)
 7. Update `backend/src/hireloop/core/cv_optimizer/service.py` — switch `PdfRenderClient` → `render_pdf` import
 8. Update backend Dockerfile — add the apt-get block
-9. Local smoke test: `docker-compose up backend`, hit `POST /cv-outputs` with a realistic markdown fixture, download the generated PDF, verify it opens, text extracts correctly, and uses the Space Grotesk + DM Sans fonts
+9. Local smoke test:
+   - `docker-compose up backend`, hit `POST /cv-outputs` with a realistic markdown fixture
+   - Verify the returned PDF opens, text extracts correctly, and uses Space Grotesk + DM Sans fonts
+   - **Markdown parity check (golden fixture):** render one representative CV markdown through both `marked` (via the still-present pdf-render dev container) and `markdown-it-py`, diff the normalized HTML output, confirm no surprise layout shifts. This is a one-time check before deletion; no need to keep the fixture afterward.
 10. Delete `pdf-render/` workspace (`git rm -r pdf-render/`)
 11. Run all config/CDK/docker-compose/pnpm-workspace cleanup edits from Section 10
 12. `pytest backend/` — all green
@@ -338,7 +360,8 @@ Estimated rollback time: **~15 minutes**. The secret recovery window (7 days) me
 
 ## 13. Assumptions and open questions
 
-- **Assumption:** The existing resume.html template renders acceptably in WeasyPrint with only the 3 Jinja edits. If WeasyPrint's Pango font rendering produces output that looks clearly worse than Chromium's output, we may need to tune font weights, add `-weasy-*` vendor extensions, or switch to a different font stack. Mitigation: Step 9 (local smoke test) runs before any CDK / deployment work.
-- **Assumption:** `backend/src/hireloop/integrations/s3.py` already exposes a `put_object`-like helper. If not, add a thin helper in that module rather than calling boto3 directly from `pdf_renderer.py`.
-- **Open:** Does the markdown-it-py CommonMark renderer's output match `marked`'s output closely enough that no template changes are needed? A quick HTML diff on a representative CV during Step 9 will answer this.
-- **Open:** The `user_id` parameter in the old HTTP API is never actually used by the renderer (only by S3 key construction, which is already done in the caller). The new `render_pdf` signature keeps it for symmetry, but it can be removed as part of Section 11 step 7 if desired — low-value scope creep though, so leaving as-is.
+- **Assumption:** The existing resume.html template renders acceptably in WeasyPrint with only the 2 Jinja edits from §6.1. If WeasyPrint's Pango font rendering produces output that looks clearly worse than Chromium's output, we may need to tune font weights, add `-weasy-*` vendor extensions, or switch to a different font stack. Mitigation: Step 9 (local smoke test) runs before any CDK / deployment work.
+- **Open:** Does the markdown-it-py CommonMark renderer's output match `marked`'s output closely enough that no template changes are needed? The Step 9 golden-fixture diff will answer this.
+- **Open (YAGNI-flagged):** The `user_id` parameter in the old HTTP API is never actually used by the renderer (S3 key construction happens in the caller). The new `render_pdf` signature keeps it for symmetry and to avoid caller churn. If ruff or mypy flag it as unused inside `pdf_renderer.py`, rename to `_user_id` or add a single `# noqa: ARG` comment rather than dropping the parameter and updating every caller.
+- **Risk (Lambda sizing):** Heavy CVs or pathological markdown (thousands of bullet points, large tables) could push WeasyPrint render time up. Not changing Lambda memory / timeout in v1 — but after the first prod-like runs, inspect `render_ms` metrics on `usage_events`. If p95 exceeds ~5 s or OOM errors appear, bump Lambda memory from the current setting (which also scales CPU) or increase timeout. No action needed up front.
+- **Deferred:** `libgdk-pixbuf-2.0-0` in the backend Dockerfile — add when a template first embeds a raster image.
