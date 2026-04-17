@@ -60,7 +60,7 @@ fe-test:
 
 # ─── Infrastructure ───────────────────────────────────────
 
-# Docker compose up (postgres, redis, inngest, localstack, pdf-render)
+# Docker compose up (postgres, redis, inngest, localstack)
 up:
     docker-compose up -d
 

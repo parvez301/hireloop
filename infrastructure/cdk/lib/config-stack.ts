@@ -31,7 +31,6 @@ export class ConfigStack extends cdk.Stack {
     emptyJson("google-api-key");
     emptyJson("stripe-secret-key");
     emptyJson("stripe-webhook-secret");
-    emptyJson("pdf-render-shared-secret");
     emptyJson("inngest-event-key");
     emptyJson("inngest-signing-key");
 

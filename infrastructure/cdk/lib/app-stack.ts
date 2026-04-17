@@ -39,7 +39,6 @@ function buildApiEnv(scope: Construct, env: string, props: LambdaEnvContext): Re
     GOOGLE_API_KEY: readJson(`hireloop/${env}/google-api-key`, "key"),
     STRIPE_SECRET_KEY: readJson(`hireloop/${env}/stripe-secret-key`, "key"),
     STRIPE_WEBHOOK_SECRET: readJson(`hireloop/${env}/stripe-webhook-secret`, "key"),
-    PDF_RENDER_SHARED_SECRET: readJson(`hireloop/${env}/pdf-render-shared-secret`, "key"),
     INNGEST_EVENT_KEY: readJson(`hireloop/${env}/inngest-event-key`, "key"),
     INNGEST_SIGNING_KEY: readJson(`hireloop/${env}/inngest-signing-key`, "key"),
     COGNITO_USER_POOL_ID: props.userPoolId,
@@ -48,7 +47,6 @@ function buildApiEnv(scope: Construct, env: string, props: LambdaEnvContext): Re
     COGNITO_JWKS_URL: `https://cognito-idp.${region}.amazonaws.com/${props.userPoolId}/.well-known/jwks.json`,
     AWS_S3_BUCKET: props.assetsBucketName,
     DISABLE_PAYWALL: "false",
-    PDF_RENDER_URL: "",
   };
 }
 
@@ -198,7 +196,6 @@ export class AppStack extends cdk.Stack {
       `hireloop/${env}/google-api-key`,
       `hireloop/${env}/stripe-secret-key`,
       `hireloop/${env}/stripe-webhook-secret`,
-      `hireloop/${env}/pdf-render-shared-secret`,
       `hireloop/${env}/inngest-event-key`,
       `hireloop/${env}/inngest-signing-key`,
     ];

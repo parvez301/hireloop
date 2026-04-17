@@ -30,6 +30,11 @@ jobs:
       - uses: astral-sh/setup-uv@v3
         with:
           version: "latest"
+      - name: Install WeasyPrint system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libcairo2 libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz0b libfontconfig1 shared-mime-info
       - name: Set up Python
         run: uv python install 3.12
       - name: Install dependencies
@@ -94,21 +99,8 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: Cache Playwright browsers
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
-      - name: Install Playwright (Chromium + system deps)
-        working-directory: pdf-render
-        run: pnpm exec playwright install --with-deps chromium
       - name: Test user-portal (Vitest)
         working-directory: user-portal
-        run: pnpm test
-      - name: Test pdf-render (Playwright API)
-        working-directory: pdf-render
-        env:
-          CI: true
         run: pnpm test
 
   cdk-synth:

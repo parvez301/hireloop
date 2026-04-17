@@ -2,5 +2,4 @@ packages:
   - "user-portal"
   - "admin-ui"
   - "marketing"
-  - "pdf-render"
   - "infrastructure/cdk"
