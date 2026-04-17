@@ -312,10 +312,19 @@ CADDY`,
     const githubOrg = githubRepo.split("/")[0];
     const githubRepoName = githubRepo.split("/")[1];
 
-    const githubOidc = new iam.OpenIdConnectProvider(this, "GitHubOidc", {
-      url: "https://token.actions.githubusercontent.com",
-      clientIds: ["sts.amazonaws.com"],
-    });
+    // Import the account-level OIDC provider created manually via
+    //   aws iam create-open-id-connect-provider
+    //     --url https://token.actions.githubusercontent.com
+    //     --client-id-list sts.amazonaws.com
+    // Managed outside CDK for two reasons: (1) it's a global account resource
+    // with exactly one instance per IdP URL, (2) avoids the CDK Lambda-backed
+    // custom resource that creates it (extra Lambda + concurrency-quota
+    // footprint on fresh accounts).
+    const githubOidc = iam.OpenIdConnectProvider.fromOpenIdConnectProviderArn(
+      this,
+      "GitHubOidc",
+      `arn:aws:iam::${this.account}:oidc-provider/token.actions.githubusercontent.com`,
+    );
 
     const oidcRole = new iam.Role(this, "GitHubOidcRole", {
       roleName: "hireloop-github-oidc",
