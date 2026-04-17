@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
 from uuid import UUID
@@ -56,7 +56,7 @@ async def render_pdf(
 ) -> RenderResult:
     """Render markdown → PDF using the given template, upload to S3, return metadata."""
     _ = user_id  # retained for symmetry with the old HTTP API; see spec §13
-    start = datetime.now(timezone.utc)
+    start = datetime.now(UTC)
 
     try:
         html_body = _md.render(markdown)
@@ -76,7 +76,7 @@ async def render_pdf(
 
     html_doc = tmpl.render(
         body=html_body,
-        generated_at=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        generated_at=datetime.now(UTC).strftime("%Y-%m-%d"),
     )
 
     try:
@@ -89,7 +89,7 @@ async def render_pdf(
 
     storage = get_storage_service()
     await storage.upload_bytes(output_key, pdf_bytes, content_type="application/pdf")
-    elapsed_ms = int((datetime.now(timezone.utc) - start).total_seconds() * 1000)
+    elapsed_ms = int((datetime.now(UTC) - start).total_seconds() * 1000)
 
     return RenderResult(
         s3_key=output_key,

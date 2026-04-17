@@ -51,7 +51,9 @@ async def test_cv_output_happy_path(auth_headers, seed_profile, seeded_evaluatio
         get_settings.cache_clear()
         get_s3_client.cache_clear()
         settings = get_settings()
-        boto3.client("s3", region_name=settings.aws_region).create_bucket(Bucket=settings.aws_s3_bucket)
+        boto3.client("s3", region_name=settings.aws_region).create_bucket(
+            Bucket=settings.aws_s3_bucket
+        )
         with (
             patch(
                 "hireloop.integrations.cognito.CognitoJwtVerifier.verify",
@@ -59,7 +61,9 @@ async def test_cv_output_happy_path(auth_headers, seed_profile, seeded_evaluatio
             ),
             fake_anthropic({"MASTER RESUME": _RESPONSE}),
         ):
-            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            async with AsyncClient(
+                transport=ASGITransport(app=app), base_url="http://test"
+            ) as client:
                 resp = await client.post(
                     "/api/v1/cv-outputs",
                     json={"job_id": str(seeded_evaluation_for_user_a.job_id)},
