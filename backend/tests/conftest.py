@@ -17,6 +17,9 @@ _dotenv = _backend_root / ".env"
 if _dotenv.exists():
     load_dotenv(_dotenv)
 
+# Local .env often disables the paywall for dev; integration paywall tests require it on.
+os.environ["DISABLE_PAYWALL"] = "false"
+
 if os.environ.get("TEST_DATABASE_URL"):
     os.environ["DATABASE_URL"] = os.environ["TEST_DATABASE_URL"]
 elif not os.environ.get("DATABASE_URL"):
@@ -26,9 +29,7 @@ elif not os.environ.get("DATABASE_URL"):
         )
     else:
         _u = getpass.getuser()
-        os.environ["DATABASE_URL"] = (
-            f"postgresql+asyncpg://{_u}@localhost:5432/hireloop"
-        )
+        os.environ["DATABASE_URL"] = f"postgresql+asyncpg://{_u}@localhost:5432/hireloop"
 
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 os.environ.setdefault("COGNITO_USER_POOL_ID", "us-east-1_test")
@@ -38,7 +39,6 @@ os.environ.setdefault("COGNITO_JWKS_URL", "http://localhost/jwks")
 os.environ.setdefault("ANTHROPIC_API_KEY", "test-key")
 os.environ.setdefault("GOOGLE_API_KEY", "test-google-key")
 os.environ.setdefault("CORS_ORIGINS", "http://localhost:5173")
-os.environ.setdefault("PDF_RENDER_URL", "http://localhost:4000")
 os.environ.setdefault("APP_URL", "http://localhost:5173")
 os.environ.setdefault("STRIPE_SECRET_KEY", "sk_test_placeholder")
 os.environ.setdefault("STRIPE_WEBHOOK_SECRET", "whsec_placeholder")
@@ -52,6 +52,9 @@ os.environ.setdefault("SCAN_BOARD_RATE_LIMIT_REQS_PER_SEC", "1")
 os.environ.setdefault("SCAN_L1_CONCURRENCY", "5")
 os.environ.setdefault("BATCH_L2_CONCURRENCY", "10")
 os.environ.setdefault("BATCH_L1_RELEVANCE_THRESHOLD", "0.5")
+
+# `.env` often sets AWS_ENDPOINT_URL for LocalStack; moto requires real boto3 routing.
+os.environ["AWS_ENDPOINT_URL"] = ""
 
 from hireloop.config import get_settings  # noqa: E402
 
@@ -140,11 +143,14 @@ async def seed_conversation(seed_profile: None):
 @pytest_asyncio.fixture
 async def second_test_user(seed_profile: None) -> dict:
     """Second user with profile, for cross-user tests."""
+    from datetime import UTC, datetime, timedelta
+
+    from hireloop.models.profile import Profile
+    from hireloop.models.subscription import Subscription
+    from hireloop.models.user import User
+
     factory = get_session_factory()
     async with factory() as session:
-        from hireloop.models.profile import Profile
-        from hireloop.models.user import User
-
         r = await session.execute(select(User).where(User.cognito_sub == SECOND_USER_CLAIMS["sub"]))
         user = r.scalar_one_or_none()
         if user is None:
@@ -166,6 +172,17 @@ async def second_test_user(seed_profile: None) -> dict:
         }
         profile.target_locations = ["remote", "new york"]
         profile.min_salary = 140000
+
+        sr = await session.execute(select(Subscription).where(Subscription.user_id == user.id))
+        sub = sr.scalar_one_or_none()
+        if sub is None:
+            sub = Subscription(user_id=user.id, plan="trial", status="active")
+            session.add(sub)
+        sub.trial_ends_at = datetime.now(UTC) + timedelta(days=30)
+        sub.stripe_subscription_id = None
+        sub.status = "active"
+        sub.past_due_since = None
+
         await session.commit()
     return {"headers": {"Authorization": "Bearer fake-b"}}
 

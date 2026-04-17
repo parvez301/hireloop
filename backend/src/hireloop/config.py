@@ -43,10 +43,6 @@ class Settings(BaseSettings):
     llm_evaluation_timeout_s: float = 60.0
     llm_cv_optimize_timeout_s: float = 90.0
 
-    pdf_render_url: str = "http://localhost:4000"
-    pdf_render_api_key: str = "local-dev-key"
-    pdf_render_timeout_s: float = 60.0
-
     agent_message_rate_limit_per_minute: int = 10
     agent_max_history_messages: int = 20
 
