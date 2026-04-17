@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Resume</title>
+  <title>Cover Letter</title>
   <style>
     @font-face {
       font-family: "Space Grotesk";
@@ -26,58 +26,43 @@
     }
     @page {
       size: A4;
-      margin: 0.5in;
+      margin: 0.75in;
+      @bottom-right {
+        content: counter(page);
+        font-family: "DM Sans", sans-serif;
+        font-size: 8pt;
+        color: #787774;
+      }
     }
     html, body {
       margin: 0;
       padding: 0;
       font-family: "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;
-      font-size: 10.5pt;
+      font-size: 11pt;
       color: #37352f;
-      line-height: 1.45;
+      line-height: 1.55;
     }
     h1 {
       font-family: "Space Grotesk", sans-serif;
-      font-size: 22pt;
+      font-size: 18pt;
       margin: 0 0 4pt 0;
       color: #37352f;
     }
     h2 {
       font-family: "Space Grotesk", sans-serif;
-      font-size: 13pt;
+      font-size: 12pt;
       margin: 14pt 0 4pt 0;
-      padding-bottom: 2pt;
-      border-bottom: 1px solid #e3e2e0;
-      text-transform: uppercase;
-      letter-spacing: 0.5pt;
     }
-    h3 {
-      font-family: "Space Grotesk", sans-serif;
-      font-size: 11pt;
-      margin: 8pt 0 2pt 0;
-    }
-    p, li {
-      margin: 0 0 2pt 0;
-    }
-    ul {
-      padding-left: 18pt;
-      margin: 2pt 0;
+    p {
+      margin: 0 0 10pt 0;
     }
     a {
       color: #2383e2;
       text-decoration: none;
     }
-    .generated-at {
-      position: fixed;
-      bottom: 0.2in;
-      right: 0.5in;
-      font-size: 7pt;
-      color: #787774;
-    }
   </style>
 </head>
 <body>
-  {{{body}}}
-  <div class="generated-at">Generated {{generatedAt}}</div>
+  {{ body | safe }}
 </body>
 </html>
