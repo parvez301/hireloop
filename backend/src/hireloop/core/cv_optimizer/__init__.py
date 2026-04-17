@@ -1,1 +1,1 @@
-"""CV optimizer module — Claude rewriter + pdf-render client + service."""
+"""CV optimizer module — Claude rewriter + in-process PDF renderer + service."""

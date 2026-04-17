@@ -1,7 +1,7 @@
 """CV optimization orchestrator.
 
 Flow: load evaluation → load profile/resume → extract keywords → rewrite
-      → call pdf-render service → persist cv_outputs row.
+      → render PDF in-process → persist cv_outputs row.
 """
 
 from __future__ import annotations
@@ -14,8 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from hireloop.core.cv_optimizer.optimizer import CvOptimizer
-from hireloop.core.cv_optimizer.render_client import PdfRenderClient
-from hireloop.integrations.pdf_render import get_pdf_render_client
+from hireloop.core.cv_optimizer.pdf_renderer import render_pdf
 from hireloop.models.cv_output import CvOutput
 from hireloop.models.evaluation import Evaluation
 from hireloop.models.job import Job
@@ -32,14 +31,12 @@ class CvOptimizerContext:
     user_id: uuid.UUID
     session: AsyncSession
     usage: UsageEventService
-    render_client: PdfRenderClient | None = None
 
 
 class CvOptimizerService:
     def __init__(self, context: CvOptimizerContext):
         self.context = context
         self.optimizer = CvOptimizer()
-        self.render_client = context.render_client or get_pdf_render_client()
 
     async def optimize(
         self,
@@ -85,10 +82,10 @@ class CvOptimizerService:
         )
 
         pdf_key = f"cv-outputs/{self.context.user_id}/{uuid.uuid4()}.pdf"
-        await self.render_client.render(
+        await render_pdf(
             markdown=rewritten.tailored_md,
             template="resume",
-            user_id=str(self.context.user_id),
+            user_id=self.context.user_id,
             output_key=pdf_key,
         )
 

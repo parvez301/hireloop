@@ -11,7 +11,7 @@ from sqlalchemy import select
 
 from hireloop.api.deps import DbSession, EntitledDbUser, RedisClient
 from hireloop.api.errors import AppError
-from hireloop.core.cv_optimizer.render_client import PdfRenderError
+from hireloop.core.cv_optimizer.pdf_renderer import PdfRenderError
 from hireloop.core.cv_optimizer.service import (
     CvOptimizerContext,
     CvOptimizerService,
