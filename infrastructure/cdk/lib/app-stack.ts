@@ -134,6 +134,26 @@ export class AppStack extends cdk.Stack {
       environment: lambdaEnv,
     });
 
+    // Migrations connect as the RDS master user because the per-env app user
+    // is provisioned CRUD-only (no schema DDL) by the Data stack's DbBootstrap.
+    // Master-secret ARN is published by Data stack to SSM at synth-time.
+    const masterSecretArn = ssm.StringParameter.valueForStringParameter(
+      this,
+      "/hireloop/shared/rds/master-secret-arn",
+    );
+    const masterSecret = secretsmanager.Secret.fromSecretCompleteArn(
+      this,
+      "RdsMasterSecret",
+      masterSecretArn,
+    );
+    const masterUser = cdk.SecretValue.secretsManager(masterSecretArn, { jsonField: "username" }).unsafeUnwrap();
+    const masterPassword = cdk.SecretValue.secretsManager(masterSecretArn, { jsonField: "password" }).unsafeUnwrap();
+    const migrationLambdaEnv = {
+      ...lambdaEnv,
+      MIGRATION_MODE: "true",
+      DATABASE_URL: `postgresql+asyncpg://${masterUser}:${masterPassword}@${dbEndpoint}:5432/hireloop_${env}?ssl=require`,
+    };
+
     const migrationFn = new lambda.DockerImageFunction(this, "MigrationFn", {
       functionName: `hireloop-migration-${env}`,
       code: lambda.DockerImageCode.fromEcr(backendRepo, {
@@ -142,8 +162,9 @@ export class AppStack extends cdk.Stack {
       memorySize: 1024,
       timeout: cdk.Duration.minutes(15),
       architecture: lambda.Architecture.ARM_64,
-      environment: { ...lambdaEnv, MIGRATION_MODE: "true" },
+      environment: migrationLambdaEnv,
     });
+    masterSecret.grantRead(migrationFn);
     const migrationCfn = migrationFn.node.defaultChild as lambda.CfnFunction;
     migrationCfn.addPropertyOverride("ImageConfig.Command", ["hireloop.aws_lambda_adapter.migration_handler"]);
 
