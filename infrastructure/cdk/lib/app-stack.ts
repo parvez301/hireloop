@@ -448,6 +448,35 @@ ${fetchEnvScript}FETCHENV`,
       }),
     );
 
+    // SPA deploy permissions: sync Vite bundles to the three per-app buckets
+    // and invalidate the matching CloudFront distributions. Bucket names are
+    // known at this stack's synth time via predictable naming (see
+    // marketing-stack / user-portal-stack / admin-portal-stack). CreateInvalidation
+    // has no meaningful resource-level scoping, so it stays at "*".
+    const spaBuckets = [
+      `hireloop-marketing-${this.account}`,
+      `hireloop-user-portal-${env}-${this.account}`,
+      `hireloop-admin-ui-${env}-${this.account}`,
+    ];
+    oidcRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ["s3:ListBucket", "s3:GetBucketLocation"],
+        resources: spaBuckets.map((b) => `arn:aws:s3:::${b}`),
+      }),
+    );
+    oidcRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ["s3:PutObject", "s3:DeleteObject", "s3:GetObject"],
+        resources: spaBuckets.map((b) => `arn:aws:s3:::${b}/*`),
+      }),
+    );
+    oidcRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ["cloudfront:CreateInvalidation", "cloudfront:GetInvalidation"],
+        resources: ["*"],
+      }),
+    );
+
     new cdk.CfnOutput(this, "ApiUrl", {
       value: `https://api.${env}.hireloop.xyz`,
     });
