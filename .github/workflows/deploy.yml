@@ -163,6 +163,7 @@ jobs:
             '{commands: [
               "set -euo pipefail",
               ("aws ecr get-login-password --region " + $r + " | docker login --username AWS --password-stdin " + $e),
+              ("ENVIRONMENT=dev AWS_REGION=" + $r + " /opt/hireloop/fetch-env.sh"),
               ("echo BACKEND_IMAGE=" + $be + " > /etc/hireloop/bootstrap.env"),
               ("echo CADDY_IMAGE=" + $cad + " >> /etc/hireloop/bootstrap.env"),
               "set -a && source /etc/hireloop/bootstrap.env && set +a",

@@ -1,3 +1,5 @@
+import * as fs from "fs";
+import * as path from "path";
 import * as cdk from "aws-cdk-lib";
 import * as acm from "aws-cdk-lib/aws-certificatemanager";
 import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
@@ -191,6 +193,14 @@ export class AppStack extends cdk.Stack {
     });
     backendRepo.grantPull(sseRole);
     caddyRepo.grantPull(sseRole);
+    sseRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ["ssm:GetParameter"],
+        resources: [
+          `arn:aws:ssm:${this.region}:${this.account}:parameter/hireloop/${env}/*`,
+        ],
+      }),
+    );
     const secretArns = [
       `hireloop/${env}/db-app-password`,
       `hireloop/${env}/anthropic-api-key`,
@@ -206,6 +216,11 @@ export class AppStack extends cdk.Stack {
       );
     }
 
+    const fetchEnvScript = fs.readFileSync(
+      path.join(__dirname, "..", "..", "scripts", "hireloop-fetch-env.sh"),
+      "utf8",
+    );
+
     const userData = ec2.UserData.forLinux();
     userData.addCommands(
       "#!/bin/bash",
@@ -217,12 +232,12 @@ export class AppStack extends cdk.Stack {
       "systemctl enable --now docker",
       "usermod -aG docker ec2-user",
       `aws ecr get-login-password --region ${cdk.Stack.of(this).region} | docker login --username AWS --password-stdin ${cdk.Aws.ACCOUNT_ID}.dkr.ecr.${cdk.Stack.of(this).region}.amazonaws.com`,
-      "mkdir -p /etc/hireloop",
+      "mkdir -p /etc/hireloop /opt/hireloop",
       `cat >/etc/hireloop/docker-compose.yml <<'COMPOSE'
 services:
   backend:
     image: \${BACKEND_IMAGE}
-    env_file: /etc/hireloop/env
+    env_file: /opt/hireloop/.env.secrets
     ports:
       - "8000:8000"
     depends_on:
@@ -254,9 +269,12 @@ sse.${env}.hireloop.xyz {
   }
 }
 CADDY`,
+      `cat >/opt/hireloop/fetch-env.sh <<'FETCHENV'
+${fetchEnvScript}FETCHENV`,
+      "chmod +x /opt/hireloop/fetch-env.sh",
+      `ENVIRONMENT=${env} AWS_REGION=${cdk.Stack.of(this).region} /opt/hireloop/fetch-env.sh`,
       `echo "BACKEND_IMAGE=${backendRepo.repositoryUri}:bootstrap-ec2" >> /etc/hireloop/bootstrap.env`,
       `echo "CADDY_IMAGE=${cdk.Aws.ACCOUNT_ID}.dkr.ecr.${cdk.Stack.of(this).region}.amazonaws.com/hireloop-caddy:2-route53" >> /etc/hireloop/bootstrap.env`,
-      "touch /etc/hireloop/env",
       "set -a && source /etc/hireloop/bootstrap.env && set +a && docker compose -f /etc/hireloop/docker-compose.yml pull || true",
       "set -a && source /etc/hireloop/bootstrap.env && set +a && docker compose -f /etc/hireloop/docker-compose.yml up -d || true",
     );
