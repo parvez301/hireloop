@@ -15,7 +15,7 @@ function renderAt(path: string) {
 describe('App routes', () => {
   it('renders home', () => {
     renderAt('/');
-    expect(screen.getByRole('heading', { name: /Spend your job hunt on interviews/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Apply to 5 jobs/i })).toBeInTheDocument();
   });
 
   it('renders pricing', () => {

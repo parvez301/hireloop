@@ -1,16 +1,16 @@
 # Home
 
-## Put your job search on autopilot
+## Grade any job in under 10 seconds
 
-**Spend your job hunt on interviews, not applications.**
+**Apply to 5 jobs. Skip the other 495. Land the one.**
 
-HireLoop scans hundreds of openings, ranks them against your actual experience, and hands you a tailored résumé for the ones worth applying to.
+HireLoop reads every new opening, scores it against your real experience, and hands you a tailored résumé for the ~5% worth your time. You apply with signal, not spray.
 
-- Primary CTA: Start 3-day free trial
+- Primary CTA: Start free — 3 days, no card
 - Secondary CTA: How it works →
 - 3 days free · $4.99/mo · cancel anytime
 
-## Everything you need for a focused search
+## Every tool. One agent. No tabs.
 
 ### Job evaluation
 
@@ -38,21 +38,21 @@ Market range research, counter-offer scripts, and pushback tactics — ready the
 
 ## How it works
 
-### Step 1: Upload your master résumé.
+### Step 1: Feed it your career, once.
 
-One time. HireLoop extracts your experience into structured data.
+One résumé upload. HireLoop parses your real experience into structured signal — not keywords.
 
-### Step 2: Paste a job link or set up scanning.
+### Step 2: Point it at the openings that matter.
 
-Greenhouse, Ashby, Lever, or any URL.
+Greenhouse, Ashby, Lever, LinkedIn, or any URL. Set it and walk away.
 
-### Step 3: Ask for what you need.
+### Step 3: Ask. It does the work.
 
 "Evaluate this job." "Tailor my résumé." "Prep me for the interview." One chat. Six tools.
 
 ## Pricing preview
 
-**One plan. $4.99/month. Cancel anytime.** Everything the agent does, no usage caps, 3-day free trial. (See full pricing →)
+**$4.99/month. One plan. Every tool.** Unlimited scans, unlimited résumés, unlimited interview prep. 3-day trial, no card. (See full pricing →)
 
 ## Questions
 
@@ -78,11 +78,11 @@ All personal data (résumé content, job evaluations, conversations) is deleted 
 
 ## Final CTA
 
-**Stop applying. Start interviewing.** — Start 3-day free trial. No credit card to start.
+**Your next interview is in the queue. You just haven’t seen it yet.** — Start free — 3 days, no card. 3 days free. No card. Cancel in two clicks.
 
 ## Footer
 
-AI-powered job search.
+Apply to fewer jobs. Land better ones.
 
 Nav: HireLoop · Pricing · Start free trial
 

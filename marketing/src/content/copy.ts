@@ -6,7 +6,7 @@ export const navCopy = {
 } as const;
 
 export const footerCopy = {
-  tagline: 'AI-powered job search.',
+  tagline: 'Apply to fewer jobs. Land better ones.',
   productHeading: 'Product',
   legalHeading: 'Legal',
   copyright: (year: number) => `© ${year} HireLoop`,
@@ -19,44 +19,44 @@ export const footerCopy = {
 } as const;
 
 export const heroCopy = {
-  eyebrow: 'Put your job search on autopilot',
-  headline: 'Spend your job hunt on interviews, not applications.',
+  eyebrow: 'Grade any job in under 10 seconds',
+  headline: 'Apply to 5 jobs. Skip the other 495. Land the one.',
   subhead:
-    'HireLoop scans hundreds of openings, ranks them against your actual experience, and hands you a tailored résumé for the ones worth applying to.',
-  primaryCta: 'Start 3-day free trial',
+    'HireLoop reads every new opening, scores it against your real experience, and hands you a tailored résumé for the ~5% worth your time. You apply with signal, not spray.',
+  primaryCta: 'Start free — 3 days, no card',
   secondaryCta: 'How it works →',
   micro: '3 days free · $4.99/mo · cancel anytime',
 } as const;
 
 export const pricingPreviewCopy = {
-  headline: 'One plan. $4.99/month. Cancel anytime.',
-  body: 'Everything the agent does, no usage caps, 3-day free trial.',
+  headline: '$4.99/month. One plan. Every tool.',
+  body: 'Unlimited scans, unlimited résumés, unlimited interview prep. 3-day trial, no card.',
   link: 'See full pricing →',
 } as const;
 
 export const finalCtaCopy = {
-  headline: 'Stop applying. Start interviewing.',
-  button: 'Start 3-day free trial',
-  micro: 'No credit card to start.',
+  headline: 'Your next interview is in the queue. You just haven\u2019t seen it yet.',
+  button: 'Start free — 3 days, no card',
+  micro: '3 days free. No card. Cancel in two clicks.',
 } as const;
 
 export const howItWorksSteps: { title: string; body: string }[] = [
   {
-    title: 'Upload your master résumé.',
-    body: 'One time. HireLoop extracts your experience into structured data.',
+    title: 'Feed it your career, once.',
+    body: 'One résumé upload. HireLoop parses your real experience into structured signal — not keywords.',
   },
   {
-    title: 'Paste a job link or set up scanning.',
-    body: 'Greenhouse, Ashby, Lever, or any URL.',
+    title: 'Point it at the openings that matter.',
+    body: 'Greenhouse, Ashby, Lever, LinkedIn, or any URL. Set it and walk away.',
   },
   {
-    title: 'Ask for what you need.',
+    title: 'Ask. It does the work.',
     body: '"Evaluate this job." "Tailor my résumé." "Prep me for the interview." One chat. Six tools.',
   },
 ];
 
 export const sectionTitles = {
-  features: 'Everything you need for a focused search',
+  features: 'Every tool. One agent. No tabs.',
   howItWorks: 'How it works',
   faqHome: 'Questions',
   faqPricing: 'Questions',

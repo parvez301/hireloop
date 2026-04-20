@@ -4,6 +4,7 @@ import { FeatureDeepDives } from '../components/FeatureDeepDives';
 import { FinalCTA } from '../components/FinalCTA';
 import { Hero } from '../components/Hero';
 import { HowItWorks } from '../components/HowItWorks';
+import { LiveDemo } from '../components/LiveDemo';
 import { PricingPreview } from '../components/PricingPreview';
 import { ProductPreview } from '../components/ProductPreview';
 import { faqHome } from '../content/faq-home';
@@ -17,6 +18,7 @@ export function HomePage() {
   return (
     <>
       <Hero />
+      <LiveDemo />
       <FeatureGrid />
       <FeatureDeepDives />
       <HowItWorks />
