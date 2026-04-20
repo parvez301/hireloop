@@ -1,5 +1,5 @@
 #!/bin/sh
 set -e
-# uv is not in the ec2 image — .venv/bin is on PATH via Dockerfile.
-alembic upgrade head
+# Migrations run in the MigrationFn Lambda (see deploy.yml migrate job),
+# not here — the EC2 backend connects as a CRUD-only app user.
 exec uvicorn hireloop.main:app --host 0.0.0.0 --port 8000

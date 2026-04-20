@@ -294,8 +294,6 @@ ${fetchEnvScript}FETCHENV`,
       requireImdsv2: true,
     });
 
-    // Caddy's caddy-dns/route53 plugin only needs these two actions scoped to
-    // this zone — ListHostedZones is unnecessary and would be account-wide.
     sseRole.addToPolicy(
       new iam.PolicyStatement({
         actions: ["route53:GetChange", "route53:ChangeResourceRecordSets"],
@@ -303,6 +301,15 @@ ${fetchEnvScript}FETCHENV`,
           `arn:aws:route53:::hostedzone/${hostedZoneId}`,
           "arn:aws:route53:::change/*",
         ],
+      }),
+    );
+    // caddy-dns/route53 plugin looks up the zone by domain name before
+    // upserting the _acme-challenge record. ListHostedZonesByName has no
+    // resource-level support, so the resource must be "*".
+    sseRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ["route53:ListHostedZonesByName"],
+        resources: ["*"],
       }),
     );
 
