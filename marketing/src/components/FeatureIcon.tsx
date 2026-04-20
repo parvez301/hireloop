@@ -38,9 +38,9 @@ export function FeatureIcon({ name }: { name: FeatureIconName }) {
   const icon = paths[name];
   return (
     <svg
-      className="h-6 w-6 shrink-0 text-accent"
-      width={24}
-      height={24}
+      className="h-5 w-5 shrink-0"
+      width={20}
+      height={20}
       viewBox={icon.viewBox}
       fill="none"
       xmlns="http://www.w3.org/2000/svg"

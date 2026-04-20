@@ -49,13 +49,16 @@ export function ProductPreview() {
   const active = previews.find((p) => p.key === activeKey) ?? previews[0];
 
   return (
-    <section id="product-preview" className="py-16 scroll-mt-24">
-      <div className="mb-10 text-center">
-        <p className="text-xs font-medium uppercase tracking-wider text-text-secondary">
-          See it in action
-        </p>
-        <h2 className="mt-2 text-3xl font-semibold tracking-tight">A real product, shipping today.</h2>
-        <p className="mx-auto mt-3 max-w-2xl text-base text-text-secondary leading-relaxed">
+    <section id="product-preview" className="bg-sidebar border-y border-border py-20 md:py-28 scroll-mt-24">
+      <div className="mx-auto max-w-6xl px-6">
+      <div className="mb-16 text-center">
+        <h2 className="text-4xl font-black leading-[1.05] tracking-tight md:text-6xl lg:text-7xl">
+          <span className="text-text-primary">A real product, </span>
+          <span className="bg-gradient-to-br from-[#14b8a6] via-[#2563eb] to-[#7c3aed] bg-clip-text text-transparent">
+            shipping today.
+          </span>
+        </h2>
+        <p className="mx-auto mt-6 max-w-2xl text-lg text-text-secondary leading-relaxed md:text-xl">
           One place to manage the job search pipeline across the entire internet. These are live screens — not mockups.
         </p>
       </div>
@@ -117,6 +120,7 @@ export function ProductPreview() {
             </div>
           );
         })}
+      </div>
       </div>
     </section>
   );

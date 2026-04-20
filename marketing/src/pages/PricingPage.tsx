@@ -9,12 +9,23 @@ export function PricingPage() {
   useDocumentTitle('Pricing — HireLoop', metaDescriptions.pricing);
 
   return (
-    <div className="mx-auto max-w-5xl px-6 py-12">
-      <h1 className="text-3xl font-semibold tracking-tight">Pricing</h1>
-      <div className="mx-auto mt-8 max-w-md">
-        <PricingCard variant="full" />
-      </div>
-      <FAQ id="faq" title={sectionTitles.faqPricing} items={faqPricing} />
-    </div>
+    <>
+      <section className="border-b border-border py-20 md:py-24">
+        <div className="mx-auto max-w-3xl px-6 text-center">
+          <h1 className="text-4xl font-bold tracking-tight md:text-5xl">Pricing</h1>
+          <p className="mt-4 text-lg text-text-secondary leading-relaxed">
+            One plan. Everything HireLoop does, no usage caps, 3-day free trial.
+          </p>
+        </div>
+        <div className="mx-auto mt-12 max-w-md px-6">
+          <PricingCard variant="full" />
+        </div>
+      </section>
+      <section className="bg-sidebar py-20 md:py-24">
+        <div className="mx-auto max-w-5xl px-6">
+          <FAQ id="faq" title={sectionTitles.faqPricing} items={faqPricing} />
+        </div>
+      </section>
+    </>
   );
 }

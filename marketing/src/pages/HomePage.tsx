@@ -1,5 +1,6 @@
 import { FAQ } from '../components/FAQ';
 import { FeatureGrid } from '../components/FeatureGrid';
+import { FeatureDeepDives } from '../components/FeatureDeepDives';
 import { FinalCTA } from '../components/FinalCTA';
 import { Hero } from '../components/Hero';
 import { HowItWorks } from '../components/HowItWorks';
@@ -14,14 +15,19 @@ export function HomePage() {
   useDocumentTitle('HireLoop — AI-powered job search', metaDescriptions.home);
 
   return (
-    <div className="mx-auto max-w-5xl px-6">
+    <>
       <Hero />
       <FeatureGrid />
+      <FeatureDeepDives />
       <HowItWorks />
       <ProductPreview />
       <PricingPreview />
-      <FAQ title={sectionTitles.faqHome} items={faqHome} />
+      <section className="bg-sidebar border-y border-border">
+        <div className="mx-auto max-w-5xl px-6">
+          <FAQ title={sectionTitles.faqHome} items={faqHome} />
+        </div>
+      </section>
       <FinalCTA />
-    </div>
+    </>
   );
 }
