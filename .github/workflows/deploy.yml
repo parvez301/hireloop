@@ -228,13 +228,24 @@ jobs:
           set -euo pipefail
           API=https://api.dev.hireloop.xyz
           SSE=https://sse.dev.hireloop.xyz
-          curl -fsS --max-time 10 "$API/healthz"
-          curl -fsS --max-time 10 "$SSE/healthz"
+          # Retry healthz with backoff — Lambda cold-start after
+          # update-function-code can exceed a single curl timeout.
+          healthcheck() {
+            local url=$1
+            for attempt in 1 2 3 4 5; do
+              if curl -fsS --max-time 30 "$url"; then return 0; fi
+              echo "healthcheck $url attempt $attempt failed, retrying..."
+              sleep 5
+            done
+            return 1
+          }
+          healthcheck "$API/healthz"
+          healthcheck "$SSE/healthz"
           CLIENT_ID=$(aws ssm get-parameter --name /hireloop/dev/cognito/user-pool-client-id --query Parameter.Value --output text)
           TOKEN=$(aws cognito-idp initiate-auth --client-id "$CLIENT_ID" --auth-flow USER_PASSWORD_AUTH \
             --auth-parameters "USERNAME=smoke@hireloop.internal,PASSWORD=${DEV_SMOKE_PASSWORD}" \
             --query 'AuthenticationResult.IdToken' --output text)
-          curl -fsS --max-time 10 -H "Authorization: Bearer $TOKEN" "$API/api/v1/auth/me" \
+          curl -fsS --max-time 15 -H "Authorization: Bearer $TOKEN" "$API/api/v1/auth/me" \
             | jq -e '.data.email == "smoke@hireloop.internal"'
       - name: Record last-green SHA
         run: |
