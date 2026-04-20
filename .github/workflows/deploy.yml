@@ -57,6 +57,7 @@ jobs:
         with:
           role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/hireloop-github-oidc
           aws-region: ${{ env.AWS_REGION }}
+      - uses: aws-actions/amazon-ecr-login@v2
       - id: ecr
         run: |
           REPO_URI=$(aws ssm get-parameter --name /hireloop/dev/ecr-repo-uri --query Parameter.Value --output text)
