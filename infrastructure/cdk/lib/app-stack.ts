@@ -190,6 +190,7 @@ export class AppStack extends cdk.Stack {
       ],
     });
     backendRepo.grantPull(sseRole);
+    caddyRepo.grantPull(sseRole);
     const secretArns = [
       `hireloop/${env}/db-app-password`,
       `hireloop/${env}/anthropic-api-key`,
@@ -209,7 +210,10 @@ export class AppStack extends cdk.Stack {
     userData.addCommands(
       "#!/bin/bash",
       "set -euxo pipefail",
-      "dnf install -y docker docker-compose-plugin",
+      "dnf install -y docker",
+      "mkdir -p /usr/local/lib/docker/cli-plugins",
+      "curl -fsSL https://github.com/docker/compose/releases/download/v2.29.7/docker-compose-linux-aarch64 -o /usr/local/lib/docker/cli-plugins/docker-compose",
+      "chmod +x /usr/local/lib/docker/cli-plugins/docker-compose",
       "systemctl enable --now docker",
       "usermod -aG docker ec2-user",
       `aws ecr get-login-password --region ${cdk.Stack.of(this).region} | docker login --username AWS --password-stdin ${cdk.Aws.ACCOUNT_ID}.dkr.ecr.${cdk.Stack.of(this).region}.amazonaws.com`,
@@ -241,7 +245,9 @@ COMPOSE`,
 sse.${env}.hireloop.xyz {
   reverse_proxy backend:8000 {
     flush_interval -1
-    transport http { read_timeout 900s }
+    transport http {
+      read_timeout 900s
+    }
   }
   tls {
     dns route53
@@ -264,6 +270,7 @@ CADDY`,
         cpuType: ec2.AmazonLinuxCpuType.ARM_64,
       }),
       userData,
+      userDataCausesReplacement: true,
       role: sseRole,
       ssmSessionPermissions: true,
       requireImdsv2: true,

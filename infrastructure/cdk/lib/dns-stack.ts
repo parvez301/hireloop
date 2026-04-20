@@ -17,7 +17,12 @@ export class DnsStack extends cdk.Stack {
 
     this.certificate = new acm.Certificate(this, "WildcardCert", {
       domainName: "hireloop.xyz",
-      subjectAlternativeNames: ["*.hireloop.xyz"],
+      subjectAlternativeNames: [
+        "*.hireloop.xyz",
+        "*.dev.hireloop.xyz",
+        "*.staging.hireloop.xyz",
+        "*.prod.hireloop.xyz",
+      ],
       validation: acm.CertificateValidation.fromDns(this.hostedZone),
     });
 

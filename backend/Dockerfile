@@ -1,7 +1,10 @@
 # syntax=docker/dockerfile:1
 # Targets: `lambda` (AWS Lambda container) and `ec2` (SSE host). Default: `ec2`.
 FROM python:3.12-slim AS builder
-WORKDIR /build
+# Build at /app (not /build) so the venv shebangs match the runtime image
+# path. Otherwise scripts like `alembic` get a `#!/build/.venv/bin/python`
+# shebang and fail at runtime where the venv lives at /app/.venv.
+WORKDIR /app
 RUN pip install --no-cache-dir uv
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev
@@ -21,10 +24,10 @@ RUN microdnf install -y \
  && microdnf clean all
 
 WORKDIR /var/task
-COPY --from=builder /build/.venv /var/task/.venv
-COPY --from=builder /build/src ./src
-COPY --from=builder /build/migrations ./migrations
-COPY --from=builder /build/alembic.ini ./
+COPY --from=builder /app/.venv /var/task/.venv
+COPY --from=builder /app/src ./src
+COPY --from=builder /app/migrations ./migrations
+COPY --from=builder /app/alembic.ini ./
 
 # fontconfig needs a writable cache; Lambda's $HOME is read-only at runtime.
 # Bake the cache at image build time pointing at /tmp so the first cold start
@@ -51,10 +54,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY --from=builder /build/.venv /app/.venv
-COPY --from=builder /build/src ./src
-COPY --from=builder /build/migrations ./migrations
-COPY --from=builder /build/alembic.ini ./
+COPY --from=builder /app/.venv /app/.venv
+COPY --from=builder /app/src ./src
+COPY --from=builder /app/migrations ./migrations
+COPY --from=builder /app/alembic.ini ./
 COPY scripts/entrypoint.sh ./scripts/entrypoint.sh
 RUN chmod +x ./scripts/entrypoint.sh
 
