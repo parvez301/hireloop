@@ -229,6 +229,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Build marketing
+        env:
+          VITE_USER_PORTAL_URL: https://app.dev.hireloop.xyz
+          VITE_ENVIRONMENT: dev
         run: pnpm --filter @hireloop/marketing build
       - uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -273,6 +276,8 @@ jobs:
           export VITE_COGNITO_USER_POOL_ID=$(aws ssm get-parameter --name /hireloop/dev/cognito/user-pool-id --query Parameter.Value --output text)
           export VITE_COGNITO_CLIENT_ID=$(aws ssm get-parameter --name /hireloop/dev/cognito/user-pool-client-id --query Parameter.Value --output text)
           export VITE_COGNITO_REGION=$(aws ssm get-parameter --name /hireloop/dev/cognito/region --query Parameter.Value --output text)
+          export VITE_COGNITO_DOMAIN=hireloop-dev.auth.us-east-1.amazoncognito.com
+          export VITE_AUTH_REDIRECT_URI=https://app.dev.hireloop.xyz/auth/callback
           export VITE_ENVIRONMENT=dev
           export VITE_SSE_KEEPALIVE_MS=15000
           pnpm --filter @hireloop/user-portal build

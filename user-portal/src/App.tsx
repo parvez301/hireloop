@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 
 import { PaywallModal } from './components/billing/PaywallModal';
+import { hostedUiUrl } from './lib/auth';
+import AuthCallbackPage from './pages/AuthCallbackPage';
 import BillingPage from './pages/BillingPage';
 import ChatPage from './pages/ChatPage';
 import InterviewPrepDetailPage from './pages/InterviewPrepDetailPage';
@@ -14,6 +16,9 @@ import StoryBankPage from './pages/StoryBankPage';
 import SubscribeRedirect from './pages/SubscribeRedirect';
 
 function matchRoute(pathname: string) {
+  if (pathname === '/signup') return 'signup';
+  if (pathname === '/login') return 'login';
+  if (pathname === '/auth/callback') return 'auth-callback';
   if (pathname === '/settings/billing') return 'billing';
   if (pathname === '/billing/success') return 'subscribe-redirect';
   if (pathname === '/billing/cancel') return 'subscribe-redirect';
@@ -38,6 +43,21 @@ function App() {
   }, []);
 
   const route = matchRoute(path);
+
+  useEffect(() => {
+    if (route === 'signup' || route === 'login') {
+      window.location.replace(hostedUiUrl(route));
+    }
+  }, [route]);
+
+  if (route === 'signup' || route === 'login') {
+    return (
+      <div className="flex min-h-screen items-center justify-center text-sm text-gray-500">
+        Redirecting to sign-in…
+      </div>
+    );
+  }
+
   const interviewPrepId =
     route === 'interview-prep-detail' ? path.replace(/^\/interview-prep\//, '') : '';
   const negotiationId =
@@ -45,6 +65,7 @@ function App() {
 
   return (
     <>
+      {route === 'auth-callback' && <AuthCallbackPage />}
       {route === 'chat' && <ChatPage />}
       {route === 'billing' && <BillingPage />}
       {route === 'subscribe-redirect' && <SubscribeRedirect />}

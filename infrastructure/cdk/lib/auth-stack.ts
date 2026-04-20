@@ -47,6 +47,8 @@ export class AuthStack extends cdk.Stack {
       },
     });
 
+    const portalOrigin = `https://app.${props.environment}.hireloop.xyz`;
+
     this.userPoolClient = this.userPool.addClient("UserPoolClient", {
       userPoolClientName: `hireloop-${props.environment}-client`,
       authFlows: {
@@ -54,10 +56,32 @@ export class AuthStack extends cdk.Stack {
         userSrp: true,
       },
       generateSecret: false,
+      oAuth: {
+        flows: {
+          authorizationCodeGrant: true,
+        },
+        scopes: [
+          cognito.OAuthScope.OPENID,
+          cognito.OAuthScope.EMAIL,
+          cognito.OAuthScope.PROFILE,
+        ],
+        callbackUrls: [
+          `${portalOrigin}/auth/callback`,
+          "http://localhost:5173/auth/callback",
+        ],
+        logoutUrls: [
+          `${portalOrigin}/`,
+          "http://localhost:5173/",
+        ],
+      },
+      supportedIdentityProviders: [cognito.UserPoolClientIdentityProvider.COGNITO],
     });
 
     new cdk.CfnOutput(this, "UserPoolId", { value: this.userPool.userPoolId });
     new cdk.CfnOutput(this, "UserPoolClientId", { value: this.userPoolClient.userPoolClientId });
     new cdk.CfnOutput(this, "UserPoolArn", { value: this.userPool.userPoolArn });
+    new cdk.CfnOutput(this, "CognitoDomain", {
+      value: `hireloop-${props.environment}.auth.${this.region}.amazoncognito.com`,
+    });
   }
 }

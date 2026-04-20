@@ -5,6 +5,8 @@ interface ImportMetaEnv {
   readonly VITE_COGNITO_USER_POOL_ID?: string;
   readonly VITE_COGNITO_CLIENT_ID?: string;
   readonly VITE_COGNITO_REGION?: string;
+  readonly VITE_COGNITO_DOMAIN?: string;
+  readonly VITE_AUTH_REDIRECT_URI?: string;
   readonly VITE_ENVIRONMENT?: string;
   readonly VITE_SSE_KEEPALIVE_MS?: string;
 }
