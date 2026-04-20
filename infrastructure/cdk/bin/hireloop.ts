@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import "source-map-support/register";
 import * as cdk from "aws-cdk-lib";
+import { AdminPortalStack } from "../lib/admin-portal-stack";
 import { AppStack } from "../lib/app-stack";
 import { AuthStack } from "../lib/auth-stack";
 import { ConfigStack } from "../lib/config-stack";
@@ -8,6 +9,7 @@ import { DataStack } from "../lib/data-stack";
 import { DnsStack } from "../lib/dns-stack";
 import { MarketingStack } from "../lib/marketing-stack";
 import { NetworkStack } from "../lib/network-stack";
+import { UserPortalStack } from "../lib/user-portal-stack";
 
 const app = new cdk.App();
 const env = {
@@ -19,6 +21,18 @@ const dns = new DnsStack(app, "HireLoop-DNS", { env });
 
 const marketing = new MarketingStack(app, "HireLoop-Marketing", { env });
 marketing.addDependency(dns);
+
+const userPortalDev = new UserPortalStack(app, "HireLoop-UserPortal-dev", {
+  env,
+  environment: "dev",
+});
+userPortalDev.addDependency(dns);
+
+const adminPortalDev = new AdminPortalStack(app, "HireLoop-AdminPortal-dev", {
+  env,
+  environment: "dev",
+});
+adminPortalDev.addDependency(dns);
 
 const network = new NetworkStack(app, "HireLoop-Network", { env });
 

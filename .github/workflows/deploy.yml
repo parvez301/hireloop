@@ -212,6 +212,117 @@ jobs:
           aws lambda update-function-code --function-name hireloop-api-dev --image-uri "${REPO_URI}@${DIG}"
           aws lambda wait function-updated --function-name hireloop-api-dev
 
+  deploy-marketing:
+    needs: [determine-environment]
+    if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.rollback_to_sha == '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.determine-environment.outputs.deploy_sha }}
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "pnpm"
+          cache-dependency-path: pnpm-lock.yaml
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build marketing
+        run: pnpm --filter @hireloop/marketing build
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/hireloop-github-oidc
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Sync to S3 + invalidate CloudFront
+        run: |
+          set -euo pipefail
+          BUCKET=$(aws ssm get-parameter --name /hireloop/dev/marketing/bucket-name --query Parameter.Value --output text)
+          DIST=$(aws ssm get-parameter --name /hireloop/dev/marketing/distribution-id --query Parameter.Value --output text)
+          aws s3 sync marketing/dist/ "s3://$BUCKET/" --delete \
+            --exclude "index.html" \
+            --cache-control "max-age=31536000,immutable"
+          aws s3 cp marketing/dist/index.html "s3://$BUCKET/index.html" \
+            --cache-control "no-cache,no-store,must-revalidate"
+          aws cloudfront create-invalidation --distribution-id "$DIST" --paths "/*"
+
+  deploy-user-portal:
+    needs: [determine-environment]
+    if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.rollback_to_sha == '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.determine-environment.outputs.deploy_sha }}
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "pnpm"
+          cache-dependency-path: pnpm-lock.yaml
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/hireloop-github-oidc
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Build + sync + invalidate
+        run: |
+          set -euo pipefail
+          export VITE_API_URL=https://api.dev.hireloop.xyz
+          export VITE_COGNITO_USER_POOL_ID=$(aws ssm get-parameter --name /hireloop/dev/cognito/user-pool-id --query Parameter.Value --output text)
+          export VITE_COGNITO_CLIENT_ID=$(aws ssm get-parameter --name /hireloop/dev/cognito/user-pool-client-id --query Parameter.Value --output text)
+          export VITE_COGNITO_REGION=$(aws ssm get-parameter --name /hireloop/dev/cognito/region --query Parameter.Value --output text)
+          export VITE_ENVIRONMENT=dev
+          export VITE_SSE_KEEPALIVE_MS=15000
+          pnpm --filter @hireloop/user-portal build
+          BUCKET=$(aws ssm get-parameter --name /hireloop/dev/user-portal/bucket-name --query Parameter.Value --output text)
+          DIST=$(aws ssm get-parameter --name /hireloop/dev/user-portal/distribution-id --query Parameter.Value --output text)
+          aws s3 sync user-portal/dist/ "s3://$BUCKET/" --delete \
+            --exclude "index.html" \
+            --cache-control "max-age=31536000,immutable"
+          aws s3 cp user-portal/dist/index.html "s3://$BUCKET/index.html" \
+            --cache-control "no-cache,no-store,must-revalidate"
+          aws cloudfront create-invalidation --distribution-id "$DIST" --paths "/*"
+
+  deploy-admin-ui:
+    needs: [determine-environment]
+    if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.rollback_to_sha == '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.determine-environment.outputs.deploy_sha }}
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "pnpm"
+          cache-dependency-path: pnpm-lock.yaml
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/hireloop-github-oidc
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Build + sync + invalidate
+        run: |
+          set -euo pipefail
+          export VITE_API_URL=https://api.dev.hireloop.xyz
+          export VITE_COGNITO_USER_POOL_ID=$(aws ssm get-parameter --name /hireloop/dev/cognito/user-pool-id --query Parameter.Value --output text)
+          export VITE_COGNITO_CLIENT_ID=$(aws ssm get-parameter --name /hireloop/dev/cognito/user-pool-client-id --query Parameter.Value --output text)
+          export VITE_COGNITO_REGION=$(aws ssm get-parameter --name /hireloop/dev/cognito/region --query Parameter.Value --output text)
+          export VITE_ENVIRONMENT=dev
+          pnpm --filter @hireloop/admin-ui build
+          BUCKET=$(aws ssm get-parameter --name /hireloop/dev/admin-ui/bucket-name --query Parameter.Value --output text)
+          DIST=$(aws ssm get-parameter --name /hireloop/dev/admin-ui/distribution-id --query Parameter.Value --output text)
+          aws s3 sync admin-ui/dist/ "s3://$BUCKET/" --delete \
+            --exclude "index.html" \
+            --cache-control "max-age=31536000,immutable"
+          aws s3 cp admin-ui/dist/index.html "s3://$BUCKET/index.html" \
+            --cache-control "no-cache,no-store,must-revalidate"
+          aws cloudfront create-invalidation --distribution-id "$DIST" --paths "/*"
+
   smoke-test:
     needs: [determine-environment, deploy-api]
     if: needs.deploy-api.result == 'success'
