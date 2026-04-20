@@ -216,21 +216,25 @@ jobs:
     if: needs.deploy-api.result == 'success'
     runs-on: ubuntu-latest
     steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/hireloop-github-oidc
+          aws-region: ${{ env.AWS_REGION }}
       - name: Smoke
         env:
-          DEV_SMOKE_TOKEN: ${{ secrets.DEV_SMOKE_TOKEN }}
+          DEV_SMOKE_PASSWORD: ${{ secrets.DEV_SMOKE_PASSWORD }}
         run: |
           set -euo pipefail
           API=https://api.dev.hireloop.xyz
           SSE=https://sse.dev.hireloop.xyz
           curl -fsS --max-time 10 "$API/healthz"
           curl -fsS --max-time 10 "$SSE/healthz"
-          curl -fsS --max-time 10 -H "Authorization: Bearer $DEV_SMOKE_TOKEN" "$API/api/v1/auth/me" \
+          CLIENT_ID=$(aws ssm get-parameter --name /hireloop/dev/cognito/user-pool-client-id --query Parameter.Value --output text)
+          TOKEN=$(aws cognito-idp initiate-auth --client-id "$CLIENT_ID" --auth-flow USER_PASSWORD_AUTH \
+            --auth-parameters "USERNAME=smoke@hireloop.internal,PASSWORD=${DEV_SMOKE_PASSWORD}" \
+            --query 'AuthenticationResult.IdToken' --output text)
+          curl -fsS --max-time 10 -H "Authorization: Bearer $TOKEN" "$API/api/v1/auth/me" \
             | jq -e '.data.email == "smoke@hireloop.internal"'
-      - uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/hireloop-github-oidc
-          aws-region: ${{ env.AWS_REGION }}
       - name: Record last-green SHA
         run: |
           aws ssm put-parameter --name /hireloop/dev/last-green-sha \
