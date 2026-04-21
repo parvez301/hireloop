@@ -112,6 +112,11 @@ export class AppStack extends cdk.Stack {
     // set at repo-creation time by that script.
     const backendRepo = ecr.Repository.fromRepositoryName(this, "BackendRepo", "hireloop-backend");
     const caddyRepo = ecr.Repository.fromRepositoryName(this, "CaddyRepo", "hireloop-caddy");
+    const llmBridgeRepo = ecr.Repository.fromRepositoryName(
+      this,
+      "LlmBridgeRepo",
+      "hireloop-llm-bridge",
+    );
 
     new ssm.StringParameter(this, "EcrBackendRepoUri", {
       parameterName: `/hireloop/${env}/ecr-repo-uri`,
@@ -214,6 +219,7 @@ export class AppStack extends cdk.Stack {
     });
     backendRepo.grantPull(sseRole);
     caddyRepo.grantPull(sseRole);
+    llmBridgeRepo.grantPull(sseRole);
     sseRole.addToPolicy(
       new iam.PolicyStatement({
         actions: ["ssm:GetParameter"],
@@ -259,10 +265,26 @@ services:
   backend:
     image: \${BACKEND_IMAGE}
     env_file: /opt/hireloop/.env.secrets
+    environment:
+      # Route async LLM calls through the llm-bridge (claude-subscription CLI)
+      # instead of paying per-token. Only reachable inside compose network.
+      ANTHROPIC_BASE_URL: "http://llm-bridge:8019"
     ports:
       - "8000:8000"
     depends_on:
       - redis
+      - llm-bridge
+  llm-bridge:
+    image: \${LLM_BRIDGE_IMAGE}
+    environment:
+      LLM_BRIDGE_PORT: "8019"
+      LLM_BRIDGE_HOST: "0.0.0.0"
+    volumes:
+      # Persist Claude Code auth state across container restarts. First-time
+      # setup: aws ssm start-session → sudo docker exec -it llm-bridge claude
+      # setup-token, then paste the code returned by the browser flow.
+      - /opt/hireloop/claude-auth:/root/.claude
+    restart: unless-stopped
   caddy:
     image: \${CADDY_IMAGE}
     ports:
@@ -277,6 +299,7 @@ services:
     ports:
       - "6379:6379"
 COMPOSE`,
+      "mkdir -p /opt/hireloop/claude-auth",
       `cat >/etc/hireloop/Caddyfile <<'CADDY'
 sse.${env}.hireloop.xyz {
   reverse_proxy backend:8000 {
@@ -296,6 +319,7 @@ ${fetchEnvScript}FETCHENV`,
       `ENVIRONMENT=${env} AWS_REGION=${cdk.Stack.of(this).region} /opt/hireloop/fetch-env.sh`,
       `echo "BACKEND_IMAGE=${backendRepo.repositoryUri}:bootstrap-ec2" >> /etc/hireloop/bootstrap.env`,
       `echo "CADDY_IMAGE=${cdk.Aws.ACCOUNT_ID}.dkr.ecr.${cdk.Stack.of(this).region}.amazonaws.com/hireloop-caddy:2-route53" >> /etc/hireloop/bootstrap.env`,
+      `echo "LLM_BRIDGE_IMAGE=${llmBridgeRepo.repositoryUri}:bootstrap-ec2" >> /etc/hireloop/bootstrap.env`,
       "set -a && source /etc/hireloop/bootstrap.env && set +a && docker compose -f /etc/hireloop/docker-compose.yml pull || true",
       "set -a && source /etc/hireloop/bootstrap.env && set +a && docker compose -f /etc/hireloop/docker-compose.yml up -d || true",
     );

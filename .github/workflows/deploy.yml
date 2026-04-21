@@ -81,6 +81,38 @@ jobs:
           echo "lambda_digest=$LAMBDA_DIGEST" >> "$GITHUB_OUTPUT"
           echo "ec2_digest=$EC2_DIGEST" >> "$GITHUB_OUTPUT"
 
+  build-llm-bridge:
+    needs: [determine-environment]
+    if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.rollback_to_sha == '' }}
+    runs-on: ubuntu-24.04-arm
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.determine-environment.outputs.deploy_sha }}
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/hireloop-github-oidc
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: aws-actions/amazon-ecr-login@v2
+      - id: ecr
+        run: |
+          ACCOUNT_ID=${{ secrets.AWS_ACCOUNT_ID }}
+          echo "repo_uri=${ACCOUNT_ID}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/hireloop-llm-bridge" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v3
+      - id: build
+        working-directory: llm-bridge
+        run: |
+          SHA="${{ needs.determine-environment.outputs.deploy_sha }}"
+          REPO_URI="${{ steps.ecr.outputs.repo_uri }}"
+          docker buildx build --platform linux/arm64 --push \
+            -t "${REPO_URI}:${SHA}" \
+            --provenance=false \
+            .
+          DIGEST=$(aws ecr describe-images --repository-name hireloop-llm-bridge --image-ids imageTag="${SHA}" --query 'imageDetails[0].imageDigest' --output text)
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+
   migrate:
     needs: [determine-environment, build-image]
     if: |
@@ -136,8 +168,10 @@ jobs:
           fi
 
   deploy-sse:
-    needs: [determine-environment, migrate]
-    if: needs.migrate.result == 'success'
+    needs: [determine-environment, migrate, build-llm-bridge]
+    if: |
+      needs.migrate.result == 'success' &&
+      (needs.build-llm-bridge.result == 'success' || needs.build-llm-bridge.result == 'skipped')
     runs-on: ubuntu-latest
     steps:
       - uses: aws-actions/configure-aws-credentials@v4
@@ -156,19 +190,29 @@ jobs:
           ECR_ROOT="${REPO_URI%/hireloop-backend}"
           BE_IMAGE="${REPO_URI}@${EC2_DIGEST}"
           CADDY_IMAGE="${ECR_ROOT}/hireloop-caddy:2-route53"
+          # Resolve llm-bridge image digest (built this run, or already in ECR for rollback)
+          if ! aws ecr describe-images --repository-name hireloop-llm-bridge --image-ids imageTag="${SHA}" >/dev/null 2>&1; then
+            echo "::error::llm-bridge image hireloop-llm-bridge:${SHA} not found in ECR"
+            exit 1
+          fi
+          LLM_DIGEST=$(aws ecr describe-images --repository-name hireloop-llm-bridge --image-ids imageTag="${SHA}" --query 'imageDetails[0].imageDigest' --output text)
+          LLM_BRIDGE_IMAGE="${ECR_ROOT}/hireloop-llm-bridge@${LLM_DIGEST}"
           PARAMS=$(jq -n \
             --arg r "$AWS_REGION" \
             --arg e "$ECR_ROOT" \
             --arg be "$BE_IMAGE" \
             --arg cad "$CADDY_IMAGE" \
+            --arg lb "$LLM_BRIDGE_IMAGE" \
             '{commands: [
               "set -euo pipefail",
               ("aws ecr get-login-password --region " + $r + " | docker login --username AWS --password-stdin " + $e),
               ("ENVIRONMENT=dev AWS_REGION=" + $r + " /opt/hireloop/fetch-env.sh"),
               ("echo BACKEND_IMAGE=" + $be + " > /etc/hireloop/bootstrap.env"),
               ("echo CADDY_IMAGE=" + $cad + " >> /etc/hireloop/bootstrap.env"),
+              ("echo LLM_BRIDGE_IMAGE=" + $lb + " >> /etc/hireloop/bootstrap.env"),
               "set -a && source /etc/hireloop/bootstrap.env && set +a",
-              "docker compose -f /etc/hireloop/docker-compose.yml pull backend",
+              "mkdir -p /opt/hireloop/claude-auth",
+              "docker compose -f /etc/hireloop/docker-compose.yml pull backend llm-bridge",
               "docker compose -f /etc/hireloop/docker-compose.yml up -d"
             ]}')
           CMD_ID=$(aws ssm send-command --instance-ids "$IID" \

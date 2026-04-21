@@ -28,3 +28,4 @@ ensure() {
 
 ensure hireloop-backend 20
 ensure hireloop-caddy 3
+ensure hireloop-llm-bridge 5
