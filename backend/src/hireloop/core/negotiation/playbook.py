@@ -101,6 +101,7 @@ async def generate_negotiation_playbook(
         model=settings.claude_model,
         max_tokens=3000,
         timeout_s=settings.llm_evaluation_timeout_s,
+        route="batch",
     )
     parsed = _parse(result.text)
     return GeneratedPlaybook(

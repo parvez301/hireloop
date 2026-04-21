@@ -59,6 +59,7 @@ class CvOptimizer:
             model=settings.claude_model,
             max_tokens=4000,
             timeout_s=settings.llm_cv_optimize_timeout_s,
+            route="batch",
         )
         parsed = self._parse(result.text)
         return OptimizationResult(

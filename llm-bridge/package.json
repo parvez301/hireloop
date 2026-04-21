@@ -1,0 +1,11 @@
+{
+  "name": "hireloop-llm-bridge",
+  "version": "1.0.0",
+  "description": "HTTP shim that translates the Anthropic Messages API to claude-code CLI invocations, so backend LLM calls can ride a Claude subscription instead of a paid API key.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {}
+}

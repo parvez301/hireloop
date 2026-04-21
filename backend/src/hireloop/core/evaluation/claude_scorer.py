@@ -72,6 +72,7 @@ class ClaudeScorer:
             model=settings.claude_model,
             max_tokens=2000,
             timeout_s=settings.llm_evaluation_timeout_s,
+            route="batch",
         )
         parsed = self._parse(result)
         return ClaudeScoringResult(

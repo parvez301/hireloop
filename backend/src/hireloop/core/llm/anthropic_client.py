@@ -5,13 +5,20 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Any
+from typing import Any, Literal
 
 import anthropic
 from anthropic import AsyncAnthropic
 
 from hireloop.config import get_settings
 from hireloop.core.llm.errors import LLMError, LLMParseError, LLMQuotaError, LLMTimeoutError
+
+# "realtime" — interactive chat / agent graph. MUST hit api.anthropic.com for
+# streaming latency; never routed through llm-bridge.
+# "batch" — async generators (interview prep, negotiation, CV optimizer, L2
+# evaluation). Routed through llm-bridge when ANTHROPIC_BASE_URL is set, else
+# falls back to api.anthropic.com transparently.
+CallRoute = Literal["realtime", "batch"]
 
 
 @dataclass
@@ -43,10 +50,27 @@ class CompletionResult:
     stop_reason: str
 
 
-@lru_cache(maxsize=1)
-def get_client() -> AsyncAnthropic:
+@lru_cache(maxsize=2)
+def _get_client(route: CallRoute) -> AsyncAnthropic:
     settings = get_settings()
-    return AsyncAnthropic(api_key=settings.anthropic_api_key or "dummy-for-tests")
+    kwargs: dict[str, Any] = {
+        "api_key": settings.anthropic_api_key or "dummy-for-tests",
+    }
+    if route == "batch" and settings.anthropic_base_url:
+        kwargs["base_url"] = settings.anthropic_base_url
+        if settings.anthropic_bridge_secret:
+            kwargs["default_headers"] = {"x-bridge-secret": settings.anthropic_bridge_secret}
+    return AsyncAnthropic(**kwargs)
+
+
+def get_client() -> AsyncAnthropic:
+    """Realtime client. Always hits api.anthropic.com — used by chat/agent graph."""
+    return _get_client("realtime")
+
+
+def get_batch_client() -> AsyncAnthropic:
+    """Batch client. Routes through llm-bridge when ANTHROPIC_BASE_URL is set."""
+    return _get_client("batch")
 
 
 def _build_user_content(
@@ -75,10 +99,16 @@ async def complete_with_cache(
     temperature: float = 0.2,
     tools: list[dict[str, Any]] | None = None,
     timeout_s: float = 60.0,
+    route: CallRoute = "realtime",
 ) -> CompletionResult:
-    """Call Claude with prompt caching enabled on the cacheable blocks."""
+    """Call Claude with prompt caching enabled on the cacheable blocks.
+
+    `route` selects the client pool — "realtime" always uses api.anthropic.com
+    (required for chat streaming latency), "batch" uses llm-bridge when
+    configured and falls back to the real API otherwise.
+    """
     settings = get_settings()
-    client = get_client()
+    client = _get_client(route)
     content = _build_user_content(cacheable_blocks, user_block, settings.enable_prompt_caching)
 
     create_kwargs: dict[str, Any] = {

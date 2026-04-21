@@ -1,0 +1,34 @@
+# Local dev compose for the LLM Bridge.
+#
+# Usage:
+#   docker compose -f llm-bridge/docker-compose.yml up -d --build
+#   docker exec -it llm-bridge claude login   # first time only
+#   curl http://localhost:8019/health
+#
+# For HireLoop backend to use it, add to backend/.env:
+#   ANTHROPIC_BASE_URL=http://host.docker.internal:8019   (if backend runs in docker)
+#   ANTHROPIC_BASE_URL=http://localhost:8019              (if backend runs on host)
+#
+# On EC2 the same image runs via CDK-generated compose on the SseInstance —
+# see infrastructure/cdk/lib/app-stack.ts. The only difference is the volume
+# source (bind-mount /opt/hireloop/claude-auth there, named volume here).
+
+services:
+  llm-bridge:
+    build: .
+    image: hireloop-llm-bridge:local
+    container_name: llm-bridge
+    ports:
+      - "127.0.0.1:8019:8019"
+    volumes:
+      - claude-auth:/root/.claude
+    environment:
+      LLM_BRIDGE_PORT: "8019"
+      LLM_BRIDGE_HOST: "0.0.0.0"
+      # Leave unset for loopback-only dev. Set a string to require
+      # x-bridge-secret on every request when exposing cross-network.
+      # LLM_BRIDGE_SHARED_SECRET: ""
+    restart: unless-stopped
+
+volumes:
+  claude-auth:

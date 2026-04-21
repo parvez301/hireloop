@@ -62,6 +62,7 @@ async def extract_star_stories_from_resume(master_resume_md: str) -> StarExtract
         max_tokens=4096,
         temperature=0.2,
         timeout_s=settings.llm_evaluation_timeout_s,
+        route="batch",
     )
 
     raw_list = _parse_stories_json(result.text)

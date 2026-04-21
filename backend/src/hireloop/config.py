@@ -34,6 +34,13 @@ class Settings(BaseSettings):
     cognito_jwks_url: str
 
     anthropic_api_key: str = ""
+    # When set, the Anthropic SDK is pointed at this URL instead of
+    # api.anthropic.com. Used to route LLM calls through the llm-bridge
+    # (claude-subscription-backed) proxy. Leave empty to use the real API.
+    anthropic_base_url: str = ""
+    # Optional shared secret sent as x-bridge-secret header if llm-bridge
+    # requires one. Ignored when anthropic_base_url is empty.
+    anthropic_bridge_secret: str = ""
     google_api_key: str = ""
     # Provider model IDs — confirm against Anthropic / Google docs when upgrading.
     claude_model: str = "claude-sonnet-4-6"
