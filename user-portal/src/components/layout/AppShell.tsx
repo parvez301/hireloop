@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react';
 
+import { getUserEmail, logout as defaultLogout } from '../../lib/auth';
+
 interface AppShellProps {
   children: ReactNode;
   userEmail?: string;
@@ -7,6 +9,9 @@ interface AppShellProps {
 }
 
 export function AppShell({ children, userEmail, onLogout }: AppShellProps) {
+  const resolvedEmail = userEmail ?? getUserEmail();
+  const resolvedLogout = onLogout ?? defaultLogout;
+
   return (
     <div className="min-h-screen bg-white text-[#37352f]">
       <header className="flex items-center justify-between border-b border-[#e3e2e0] px-6 py-3">
@@ -37,16 +42,14 @@ export function AppShell({ children, userEmail, onLogout }: AppShellProps) {
           <a href="/settings/billing" className="hover:text-[#37352f]">
             Billing
           </a>
-          {userEmail && <span>{userEmail}</span>}
-          {onLogout && (
-            <button
-              type="button"
-              onClick={onLogout}
-              className="rounded border border-[#e3e2e0] px-2 py-1 hover:bg-[#efefef]"
-            >
-              Log out
-            </button>
-          )}
+          {resolvedEmail && <span>{resolvedEmail}</span>}
+          <button
+            type="button"
+            onClick={resolvedLogout}
+            className="rounded border border-[#e3e2e0] px-2 py-1 hover:bg-[#efefef]"
+          >
+            Log out
+          </button>
         </div>
       </header>
       <main className="mx-auto max-w-3xl px-6 py-6">{children}</main>

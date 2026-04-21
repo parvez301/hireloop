@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { PaywallModal } from './components/billing/PaywallModal';
-import { hostedUiUrl } from './lib/auth';
+import { hostedUiUrl, isAuthenticated } from './lib/auth';
 import AuthCallbackPage from './pages/AuthCallbackPage';
 import BillingPage from './pages/BillingPage';
 import ChatPage from './pages/ChatPage';
@@ -43,14 +43,27 @@ function App() {
   }, []);
 
   const route = matchRoute(path);
+  const isPublicRoute = route === 'signup' || route === 'login' || route === 'auth-callback';
 
   useEffect(() => {
     if (route === 'signup' || route === 'login') {
       window.location.replace(hostedUiUrl(route));
+      return;
     }
-  }, [route]);
+    if (!isPublicRoute && !isAuthenticated()) {
+      window.location.replace('/login');
+    }
+  }, [route, isPublicRoute]);
 
   if (route === 'signup' || route === 'login') {
+    return (
+      <div className="flex min-h-screen items-center justify-center text-sm text-gray-500">
+        Redirecting to sign-in…
+      </div>
+    );
+  }
+
+  if (!isPublicRoute && !isAuthenticated()) {
     return (
       <div className="flex min-h-screen items-center justify-center text-sm text-gray-500">
         Redirecting to sign-in…

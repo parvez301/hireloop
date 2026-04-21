@@ -94,3 +94,33 @@ export function isAuthenticated(): boolean {
   const expiresAt = Number(localStorage.getItem(EXPIRES_AT_KEY));
   return !expiresAt || expiresAt > Date.now();
 }
+
+function base64UrlDecode(segment: string): string {
+  const padLen = (4 - (segment.length % 4)) % 4;
+  const base64 = segment.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat(padLen);
+  return atob(base64);
+}
+
+export function getIdTokenClaims(): Record<string, unknown> | null {
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (!token) return null;
+  const parts = token.split('.');
+  if (parts.length < 2) return null;
+  try {
+    return JSON.parse(base64UrlDecode(parts[1])) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+export function getUserEmail(): string | null {
+  const claims = getIdTokenClaims();
+  const email = claims?.email;
+  return typeof email === 'string' ? email : null;
+}
+
+export function logout(): void {
+  const href = logoutUrl();
+  clearTokens();
+  window.location.assign(href);
+}

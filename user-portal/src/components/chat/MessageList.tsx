@@ -17,6 +17,7 @@ export function MessageList({ messages }: MessageListProps) {
       {messages.map((message) => (
         <li
           key={message.id}
+          data-role={message.role}
           className={
             message.role === 'user'
               ? 'self-end max-w-[85%] rounded-lg bg-[#2383e2] px-4 py-2 text-white'

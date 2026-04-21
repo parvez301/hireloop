@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { exchangeCodeForTokens, storeTokens } from '../lib/auth';
 
@@ -7,8 +7,12 @@ type Status = 'exchanging' | 'error';
 export default function AuthCallbackPage() {
   const [status, setStatus] = useState<Status>('exchanging');
   const [errorMessage, setErrorMessage] = useState<string>('');
+  const exchangeStarted = useRef(false);
 
   useEffect(() => {
+    if (exchangeStarted.current) return;
+    exchangeStarted.current = true;
+
     const params = new URLSearchParams(window.location.search);
     const code = params.get('code');
     const cognitoError = params.get('error_description') ?? params.get('error');

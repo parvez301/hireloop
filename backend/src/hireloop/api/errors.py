@@ -91,6 +91,7 @@ async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
         request_id=request_id,
         code=exc.code,
         status_code=exc.status_code,
+        message=exc.message,
     )
     return _build_response(
         status_code=exc.status_code,

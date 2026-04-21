@@ -68,6 +68,19 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     } catch {
       // ignore
     }
+    if (response.status === 401) {
+      try {
+        localStorage.removeItem('ca:idToken');
+        localStorage.removeItem('ca:refreshToken');
+        localStorage.removeItem('ca:expiresAt');
+      } catch {
+        // ignore storage errors
+      }
+      const current = window.location.pathname;
+      if (current !== '/login' && current !== '/signup' && current !== '/auth/callback') {
+        window.location.assign('/login');
+      }
+    }
     if (response.status === 403 && code === 'TRIAL_EXPIRED') {
       // Global signal: any component listening for this can render the paywall modal.
       window.dispatchEvent(new CustomEvent('subscription-required', { detail: { message } }));
