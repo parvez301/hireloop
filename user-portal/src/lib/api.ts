@@ -286,12 +286,43 @@ export interface Profile {
   target_locations: string[] | null;
   min_salary: number | null;
   preferred_industries: string[] | null;
+  work_arrangement: string | null;
   linkedin_url: string | null;
   github_url: string | null;
   portfolio_url: string | null;
   onboarding_state: 'resume_upload' | 'preferences' | 'done';
   created_at: string;
   updated_at: string;
+}
+
+export interface JobDetailRow {
+  id: string;
+  content_hash: string;
+  url: string | null;
+  title: string;
+  company: string | null;
+  location: string | null;
+  salary_min: number | null;
+  salary_max: number | null;
+  employment_type: string | null;
+  seniority: string | null;
+  description_md: string;
+  requirements_json: Record<string, unknown> | null;
+  source: string;
+  discovered_at: string | null;
+}
+
+export interface JobDetailResponse {
+  job: JobDetailRow;
+  evaluation: {
+    id: string;
+    overall_grade: string;
+    match_score: number;
+    reasoning: string;
+    dimension_scores: Record<string, unknown>;
+    red_flags: string[] | null;
+    recommendation: string;
+  } | null;
 }
 
 export interface ParsedJob {
@@ -309,6 +340,29 @@ export interface ParsedJob {
 }
 
 export type EvaluationGrade = 'A' | 'A-' | 'B+' | 'B' | 'C';
+
+export interface BriefingTopJob {
+  evaluation_id: string;
+  job_id: string;
+  title: string;
+  company: string | null;
+  location: string | null;
+  overall_grade: string;
+  match_score: number;
+  created_at: string;
+}
+
+export interface BriefingData {
+  top_jobs: BriefingTopJob[];
+  pipeline_counts: Record<string, number>;
+  next_prep: {
+    id: string;
+    job_id: string | null;
+    custom_role: string | null;
+    created_at: string;
+  } | null;
+  generated_at: string;
+}
 
 export interface EvaluationDetail {
   id: string;
@@ -527,6 +581,8 @@ export const api = {
     },
     uploadResumeText: (text: string) =>
       request<{ data: Profile }>('POST', '/api/v1/profile/resume-text', { text }),
+    update: (body: Partial<Profile>) =>
+      request<{ data: Profile }>('PUT', '/api/v1/profile', body),
   },
 
   jobs: {
@@ -534,6 +590,8 @@ export const api = {
       request<{ data: ParsedJob }>('POST', '/api/v1/jobs/parse', body),
     parseText: (body: { text: string; source_url?: string }) =>
       request<{ data: ParsedJob }>('POST', '/api/v1/jobs/parse-text', body),
+    get: (id: string) =>
+      request<{ data: JobDetailResponse }>('GET', `/api/v1/jobs/${id}`),
   },
 
   onboarding: {
@@ -550,6 +608,11 @@ export const api = {
   evaluations: {
     get: (id: string) =>
       request<{ data: EvaluationDetail }>('GET', `/api/v1/evaluations/${id}`),
+  },
+
+  me: {
+    briefing: () =>
+      request<{ data: BriefingData }>('GET', '/api/v1/me/briefing'),
   },
 
   feedback: {

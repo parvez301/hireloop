@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 
-import { AppShell } from '../components/layout/AppShell';
+import { WorkspaceShell } from '../components/workspace/WorkspaceShell';
 import { api, type ScanRunDetail } from '../lib/api';
 import { usePolling } from '../lib/polling';
 
@@ -41,17 +41,17 @@ export default function ScanDetailPage() {
 
   if (loading && !data) {
     return (
-      <AppShell>
+      <WorkspaceShell>
         <p className="text-sm text-[#787774]">Loading scan…</p>
-      </AppShell>
+      </WorkspaceShell>
     );
   }
 
   if (error && !data) {
     return (
-      <AppShell>
+      <WorkspaceShell>
         <p className="text-sm text-[#e03e3e]">Error: {error.message}</p>
-      </AppShell>
+      </WorkspaceShell>
     );
   }
 
@@ -61,7 +61,7 @@ export default function ScanDetailPage() {
   const isRunning = scan_run.status === 'pending' || scan_run.status === 'running';
 
   return (
-    <AppShell>
+    <WorkspaceShell>
       <div className="mx-auto max-w-3xl">
         <a href="/scans" className="text-sm text-[#2383e2]">
           ← Back to scans
@@ -122,6 +122,6 @@ export default function ScanDetailPage() {
           </div>
         )}
       </div>
-    </AppShell>
+    </WorkspaceShell>
   );
 }

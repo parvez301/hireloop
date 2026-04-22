@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { AppShell } from '../components/layout/AppShell';
+import { WorkspaceShell } from '../components/workspace/WorkspaceShell';
 import { api, type Negotiation } from '../lib/api';
 
 export default function NegotiationListPage() {
@@ -24,7 +24,7 @@ export default function NegotiationListPage() {
   }, []);
 
   return (
-    <AppShell>
+    <WorkspaceShell>
       <h1 className="text-xl font-semibold">Negotiations</h1>
       <p className="mt-1 text-sm text-[#787774]">Saved playbooks and scripts.</p>
       {error && <p className="mt-2 text-sm text-[#e03e3e]">{error}</p>}
@@ -42,6 +42,6 @@ export default function NegotiationListPage() {
           No negotiations yet. Use the assistant and complete the offer form when prompted.
         </p>
       )}
-    </AppShell>
+    </WorkspaceShell>
   );
 }

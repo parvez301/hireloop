@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { AppShell } from '../components/layout/AppShell';
+import { WorkspaceShell } from '../components/workspace/WorkspaceShell';
 import { FeedbackWidget } from '../components/shared/FeedbackWidget';
 import { api, type InterviewPrep } from '../lib/api';
 
@@ -26,16 +26,16 @@ export default function InterviewPrepDetailPage({ id }: { id: string }) {
 
   if (error) {
     return (
-      <AppShell>
+      <WorkspaceShell>
         <p className="text-[#e03e3e]">{error}</p>
-      </AppShell>
+      </WorkspaceShell>
     );
   }
   if (!prep) {
     return (
-      <AppShell>
+      <WorkspaceShell>
         <p className="text-[#787774]">Loading…</p>
-      </AppShell>
+      </WorkspaceShell>
     );
   }
 
@@ -46,7 +46,7 @@ export default function InterviewPrepDetailPage({ id }: { id: string }) {
   }>;
 
   return (
-    <AppShell>
+    <WorkspaceShell>
       <a href="/interview-prep" className="text-sm text-[#2383e2] hover:underline">
         ← All interview prep
       </a>
@@ -88,6 +88,6 @@ export default function InterviewPrepDetailPage({ id }: { id: string }) {
       )}
 
       <FeedbackWidget resource="interview_prep" resourceId={prep.id} className="mt-8" />
-    </AppShell>
+    </WorkspaceShell>
   );
 }

@@ -1,88 +1,113 @@
 import { useCallback, useEffect, useState } from 'react';
-import { DndContext, type DragEndEvent } from '@dnd-kit/core';
 
-import { AppShell } from '../components/layout/AppShell';
-import { KanbanColumn } from '../components/pipeline/KanbanColumn';
-import { PipelineFilters } from '../components/pipeline/PipelineFilters';
+import { EmptyState } from '../components/ui/EmptyState';
+import { Kanban, type KanbanColumn } from '../components/ui/Kanban';
+import { WorkspaceShell } from '../components/workspace/WorkspaceShell';
 import { api, type Application } from '../lib/api';
 
-const COLUMNS: Array<{ status: Application['status']; title: string }> = [
-  { status: 'saved', title: 'Saved' },
-  { status: 'applied', title: 'Applied' },
-  { status: 'interviewing', title: 'Interviewing' },
-  { status: 'offered', title: 'Offered' },
-  { status: 'rejected', title: 'Rejected' },
-  { status: 'withdrawn', title: 'Withdrawn' },
+type Stage = Application['status'];
+
+const COLUMNS: KanbanColumn<Stage>[] = [
+  { id: 'saved', label: 'Saved' },
+  { id: 'applied', label: 'Applied' },
+  { id: 'interviewing', label: 'Interviewing' },
+  { id: 'offered', label: 'Offered' },
+  { id: 'rejected', label: 'Rejected' },
+  { id: 'withdrawn', label: 'Withdrawn' },
 ];
+
+type Item = Application & { stage: Stage };
 
 export default function PipelinePage() {
   const [apps, setApps] = useState<Application[]>([]);
-  const [minGrade, setMinGrade] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [metaByJob, setMetaByJob] = useState<
-    Record<string, { title: string; company: string | null; grade?: string }>
-  >({});
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const resp = await api.applications.list(minGrade ? { min_grade: minGrade } : {});
-      setApps(resp.data);
-      setMetaByJob({});
-    } catch (e) {
-      setError((e as Error).message);
+      const response = await api.applications.list();
+      setApps(response.data);
+    } catch (caught) {
+      setError((caught as Error).message);
     } finally {
       setLoading(false);
     }
-  }, [minGrade]);
+  }, []);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  const handleDragEnd = async (event: DragEndEvent) => {
-    const appId = String(event.active.id);
-    const newStatus = event.over?.id as Application['status'] | undefined;
-    if (!newStatus) return;
-    const app = apps.find((a) => a.id === appId);
-    if (!app || app.status === newStatus) return;
-
-    const prev = apps;
-    setApps(apps.map((a) => (a.id === appId ? { ...a, status: newStatus } : a)));
+  async function handleStageChange(id: string, nextStage: Stage) {
+    const previous = apps;
+    setApps((current) =>
+      current.map((app) => (app.id === id ? { ...app, status: nextStage } : app)),
+    );
     try {
-      await api.applications.update(appId, { status: newStatus });
-    } catch (e) {
-      setApps(prev);
-      setError((e as Error).message);
+      await api.applications.update(id, { status: nextStage });
+    } catch (caught) {
+      setApps(previous);
+      setError((caught as Error).message);
     }
-  };
+  }
+
+  const items: Item[] = apps.map((app) => ({ ...app, stage: app.status }));
 
   return (
-    <AppShell>
-      <div className="max-w-full">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold">Pipeline</h1>
-          <PipelineFilters minGrade={minGrade} onMinGradeChange={setMinGrade} />
-        </div>
+    <WorkspaceShell>
+      <div className="mx-auto max-w-6xl space-y-6">
+        <header>
+          <h1 className="text-[28px] font-semibold tracking-tight">Pipeline</h1>
+          <p className="mt-1 text-[13px] text-ink-3">
+            Drag a role across columns as it moves through the process. Changes save automatically.
+          </p>
+        </header>
 
-        {error && <p className="mt-4 text-sm text-[#e03e3e]">Error: {error}</p>}
-        {loading && <p className="mt-4 text-sm text-[#787774]">Loading…</p>}
+        {error && (
+          <p
+            role="alert"
+            className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-800"
+          >
+            {error}
+          </p>
+        )}
 
-        <DndContext onDragEnd={handleDragEnd}>
-          <div className="mt-6 flex gap-4 overflow-x-auto pb-4">
-            {COLUMNS.map((col) => (
-              <KanbanColumn
-                key={col.status}
-                status={col.status}
-                title={col.title}
-                applications={apps.filter((a) => a.status === col.status)}
-                metaByJob={metaByJob}
+        {loading ? (
+          <div className="text-ink-3">Loading pipeline…</div>
+        ) : (
+          <>
+            <Kanban<Stage, Item>
+              columns={COLUMNS}
+              items={items}
+              onStageChange={handleStageChange}
+              emptyHint="Drop cards here"
+              renderCard={(item) => (
+                <div>
+                  <div className="text-[14px] font-medium text-ink">
+                    {item.notes ?? 'Saved role'}
+                  </div>
+                  <div className="mt-1 text-[11px] text-ink-3">
+                    Updated {new Date(item.updated_at).toLocaleDateString()}
+                  </div>
+                  <a
+                    href={`/jobs/${item.job_id}`}
+                    className="mt-2 inline-block text-[11px] text-accent-cobalt hover:underline"
+                  >
+                    View job →
+                  </a>
+                </div>
+              )}
+            />
+            {apps.length === 0 && (
+              <EmptyState
+                title="Nothing in your pipeline yet."
+                body="Save a job from a scan or evaluation to see it here."
               />
-            ))}
-          </div>
-        </DndContext>
+            )}
+          </>
+        )}
       </div>
-    </AppShell>
+    </WorkspaceShell>
   );
 }

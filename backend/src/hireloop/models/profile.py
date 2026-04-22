@@ -29,6 +29,7 @@ class Profile(Base, UUIDPKMixin, TimestampMixin):
     target_locations: Mapped[list[str] | None] = mapped_column(JSONB)
     min_salary: Mapped[int | None] = mapped_column(Integer)
     preferred_industries: Mapped[list[str] | None] = mapped_column(JSONB)
+    work_arrangement: Mapped[str | None] = mapped_column(String(32))
     linkedin_url: Mapped[str | None] = mapped_column(String(500))
     github_url: Mapped[str | None] = mapped_column(String(500))
     portfolio_url: Mapped[str | None] = mapped_column(String(500))

@@ -2,13 +2,25 @@ import type { ReactNode } from 'react';
 
 import { getUserEmail } from '../../lib/auth';
 
-export type OnboardingStepName = 'resume' | 'job' | 'evaluating' | 'payoff';
+export type OnboardingStepName =
+  | 'resume'
+  | 'job'
+  | 'evaluating'
+  | 'confirm'
+  | 'payoff';
 
-const STEP_ORDER: OnboardingStepName[] = ['resume', 'job', 'evaluating', 'payoff'];
+const STEP_ORDER: OnboardingStepName[] = [
+  'resume',
+  'job',
+  'evaluating',
+  'confirm',
+  'payoff',
+];
 const STEP_LABELS: Record<OnboardingStepName, string> = {
   resume: 'RESUME',
   job: 'JOB',
   evaluating: 'EVALUATING',
+  confirm: 'CONFIRM',
   payoff: 'RESULT',
 };
 

@@ -1,33 +1,50 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Radar } from 'lucide-react';
 
-import { AppShell } from '../components/layout/AppShell';
-import { api, type Profile, type ScanConfig, type ScanRun } from '../lib/api';
+import { Chip } from '../components/ui/Chip';
+import { EmptyState } from '../components/ui/EmptyState';
+import { GradientButton } from '../components/ui/GradientButton';
+import { SoftCard } from '../components/ui/SoftCard';
+import { Sparkline } from '../components/ui/Sparkline';
+import { WorkspaceShell } from '../components/workspace/WorkspaceShell';
+import {
+  api,
+  type Profile,
+  type ScanConfig,
+  type ScanRun,
+} from '../lib/api';
 import ScanConfigEditor from './ScanConfigEditor';
+
+function sparklineFromRun(run: ScanRun | undefined): number[] {
+  if (!run) return [0, 0, 0, 0, 0, 0, 0];
+  const total = run.jobs_found ?? 0;
+  return [0, Math.max(0, total - 5), Math.max(0, total - 3), total, total, total, total];
+}
 
 export default function ScansPage() {
   const [configs, setConfigs] = useState<ScanConfig[]>([]);
   const [runs, setRuns] = useState<Record<string, ScanRun>>({});
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<ScanConfig | null | 'new'>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const configResp = await api.scanConfigs.list();
-      setConfigs(configResp.data);
-      const runsResp = await api.scanRuns.list({ limit: 100 });
+      const configsResponse = await api.scanConfigs.list();
+      setConfigs(configsResponse.data);
+      const runsResponse = await api.scanRuns.list({ limit: 100 });
       const byConfig: Record<string, ScanRun> = {};
-      for (const run of runsResp.data) {
-        const prev = byConfig[run.scan_config_id];
-        if (!prev || new Date(run.started_at) > new Date(prev.started_at)) {
+      for (const run of runsResponse.data) {
+        const previous = byConfig[run.scan_config_id];
+        if (!previous || new Date(run.started_at) > new Date(previous.started_at)) {
           byConfig[run.scan_config_id] = run;
         }
       }
       setRuns(byConfig);
-    } catch (e) {
-      setError((e as Error).message);
+    } catch (caught) {
+      setError((caught as Error).message);
     } finally {
       setLoading(false);
     }
@@ -45,7 +62,7 @@ export default function ScansPage() {
         if (!cancelled) setProfile(response.data);
       })
       .catch(() => {
-        // JIT banner is nice-to-have; ignore fetch failures.
+        /* JIT banner is nice-to-have */
       });
     return () => {
       cancelled = true;
@@ -58,10 +75,10 @@ export default function ScansPage() {
 
   async function runScan(config: ScanConfig) {
     try {
-      const resp = await api.scanConfigs.run(config.id);
-      window.location.href = `/scans/${resp.data.scan_run_id}`;
-    } catch (e) {
-      setError((e as Error).message);
+      const response = await api.scanConfigs.run(config.id);
+      window.location.assign(`/scans/${response.data.scan_run_id}`);
+    } catch (caught) {
+      setError((caught as Error).message);
     }
   }
 
@@ -70,99 +87,130 @@ export default function ScansPage() {
     try {
       await api.scanConfigs.delete(config.id);
       await load();
-    } catch (e) {
-      setError((e as Error).message);
+    } catch (caught) {
+      setError((caught as Error).message);
     }
   }
 
   return (
-    <AppShell>
-      <div className="mx-auto max-w-3xl">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold">Scans</h1>
-          <button
-            type="button"
-            onClick={() => setEditing('new')}
-            className="rounded bg-[#2383e2] px-4 py-2 text-sm font-medium text-white"
-          >
-            New scan config
-          </button>
-        </div>
-
-        {prefsIncomplete && (
-          <div
-            role="alert"
-            data-testid="preferences-needed-banner"
-            className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950"
-          >
-            <p className="font-medium">Set your scan targets first</p>
-            <p className="mt-1 text-amber-900/90">
-              Add the roles and locations you want so we know what to look for.
+    <WorkspaceShell>
+      <div className="mx-auto max-w-5xl space-y-6">
+        <header className="flex items-center justify-between">
+          <div>
+            <h1 className="text-[28px] font-semibold tracking-tight">Scans</h1>
+            <p className="mt-1 text-[13px] text-ink-3">
+              Saved searches that grade new jobs for you daily.
             </p>
           </div>
+          <GradientButton onClick={() => setEditing('new')}>
+            + New scan
+          </GradientButton>
+        </header>
+
+        {prefsIncomplete && (
+          <SoftCard padding="sm">
+            <div className="flex items-start gap-3" role="alert" data-testid="preferences-needed-banner">
+              <Radar size={18} className="flex-none text-amber" />
+              <div>
+                <p className="text-[13px] font-medium text-ink">Set your scan targets first</p>
+                <p className="mt-1 text-[12px] text-ink-3">
+                  Add the roles and locations you want so we know what to look for.
+                </p>
+                <a
+                  href="/profile/targets"
+                  className="mt-2 inline-block text-[12px] text-accent-cobalt hover:underline"
+                >
+                  Open Profile → Targets →
+                </a>
+              </div>
+            </div>
+          </SoftCard>
         )}
 
-        {error && <p className="mt-4 text-sm text-[#e03e3e]">Error: {error}</p>}
+        {error && (
+          <p
+            role="alert"
+            className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-800"
+          >
+            {error}
+          </p>
+        )}
 
         {loading ? (
-          <p className="mt-8 text-sm text-[#787774]">Loading…</p>
+          <div className="text-ink-3">Loading…</div>
         ) : configs.length === 0 ? (
-          <p className="mt-8 text-sm text-[#787774]">
-            No scan configs yet. Complete onboarding to get the default one, or create a new one
-            above.
-          </p>
+          <EmptyState
+            title="No scans yet."
+            body="Create a scan to track new roles at companies you care about."
+            cta={
+              <GradientButton onClick={() => setEditing('new')}>
+                Create your first scan
+              </GradientButton>
+            }
+          />
         ) : (
-          <ul className="mt-6 space-y-3">
-            {configs.map((c) => {
-              const run = runs[c.id];
+          <ul className="space-y-3">
+            {configs.map((config) => {
+              const run = runs[config.id];
               return (
-                <li
-                  key={c.id}
-                  className="rounded-lg border border-[#e3e2e0] bg-[#fbfbfa] p-4"
-                >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h3 className="text-base font-semibold">{c.name}</h3>
-                      <p className="mt-1 text-xs text-[#787774]">
-                        {c.companies.length} companies
-                        {c.keywords?.length ? ` · ${c.keywords.length} keywords` : ''}
-                      </p>
-                      {run && (
-                        <p className="mt-1 text-xs text-[#787774]">
-                          Last run: {run.status}
-                          {run.status === 'completed' &&
-                            ` — ${run.jobs_found} jobs (${run.jobs_new} new)`}
-                          {' · '}
-                          <a href={`/scans/${run.id}`} className="text-[#2383e2]">
-                            View
-                          </a>
-                        </p>
-                      )}
+                <li key={config.id}>
+                  <SoftCard padding="md">
+                    <div className="flex items-center justify-between gap-6">
+                      <div className="min-w-0">
+                        <a
+                          href={`/scans/${run?.id ?? config.id}`}
+                          className="text-[15px] font-semibold text-ink hover:underline"
+                        >
+                          {config.name}
+                        </a>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {config.companies.slice(0, 4).map((company) => (
+                            <Chip
+                              key={company.board_slug}
+                              label={company.name}
+                              variant="suggest"
+                            />
+                          ))}
+                          {config.keywords?.slice(0, 3).map((keyword) => (
+                            <Chip key={keyword} label={keyword} variant="suggest" />
+                          ))}
+                        </div>
+                        {run && (
+                          <p className="mt-2 text-[12px] text-ink-3">
+                            Last run: {run.status}
+                            {run.status === 'completed' &&
+                              ` — ${run.jobs_found} jobs (${run.jobs_new} new)`}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <Sparkline values={sparklineFromRun(run)} label="Jobs" />
+                        <div className="flex flex-col gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => runScan(config)}
+                            className="rounded-full border border-line-2 bg-white px-3 py-1 text-[12px] text-ink-2 hover:bg-[#faf9f6]"
+                          >
+                            Run now
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditing(config)}
+                            className="rounded-full border border-line-2 bg-white px-3 py-1 text-[12px] text-ink-2 hover:bg-[#faf9f6]"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteConfig(config)}
+                            className="rounded-full border border-line-2 bg-white px-3 py-1 text-[12px] text-amber hover:bg-amber/10"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => runScan(c)}
-                        className="rounded bg-[#2383e2] px-3 py-1 text-xs text-white"
-                      >
-                        Run now
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setEditing(c)}
-                        className="rounded border border-[#e3e2e0] px-3 py-1 text-xs"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => deleteConfig(c)}
-                        className="rounded border border-[#e3e2e0] px-3 py-1 text-xs text-[#e03e3e]"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
+                  </SoftCard>
                 </li>
               );
             })}
@@ -180,6 +228,6 @@ export default function ScansPage() {
           onCancel={() => setEditing(null)}
         />
       )}
-    </AppShell>
+    </WorkspaceShell>
   );
 }

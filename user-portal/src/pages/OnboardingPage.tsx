@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 
+import { ConfirmStep } from '../components/onboarding/ConfirmStep';
 import { EvaluationProgressStep } from '../components/onboarding/EvaluationProgressStep';
 import { JobInputStep } from '../components/onboarding/JobInputStep';
 import {
@@ -7,19 +8,28 @@ import {
   type OnboardingStepName,
 } from '../components/onboarding/OnboardingShell';
 import { ResumeUploadStep } from '../components/onboarding/ResumeUploadStep';
-import { api } from '../lib/api';
+import { api, type Profile } from '../lib/api';
 
-type WizardStep = 'loading' | 'resume' | 'job' | 'evaluating' | 'failed-skip';
+type WizardStep =
+  | 'loading'
+  | 'resume'
+  | 'job'
+  | 'evaluating'
+  | 'confirm'
+  | 'failed-skip';
 
 function shellStepFor(step: WizardStep): OnboardingStepName {
   if (step === 'resume') return 'resume';
   if (step === 'evaluating') return 'evaluating';
+  if (step === 'confirm') return 'confirm';
   if (step === 'failed-skip') return 'job';
   return 'job';
 }
 
 export default function OnboardingPage() {
   const [step, setStep] = useState<WizardStep>('loading');
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [pendingEvaluationId, setPendingEvaluationId] = useState<string | null>(null);
   const [jobError, setJobError] = useState<string | null>(null);
   const [evalBusy, setEvalBusy] = useState(false);
   const [failCount, setFailCount] = useState(0);
@@ -30,6 +40,7 @@ export default function OnboardingPage() {
       try {
         const { data } = await api.profile.get();
         if (cancelled) return;
+        setProfile(data);
         setStep(data.onboarding_state === 'done' ? 'job' : 'resume');
       } catch {
         if (!cancelled) setStep('resume');
@@ -55,8 +66,8 @@ export default function OnboardingPage() {
       } catch {
         // sessionStorage may fail in private mode; payoff page falls back to API fetch.
       }
-      window.history.pushState({}, '', `/onboarding/evaluation/${evaluationId}`);
-      window.dispatchEvent(new PopStateEvent('popstate'));
+      setPendingEvaluationId(evaluationId);
+      setStep('confirm');
     } catch (error) {
       const nextFailCount = failCount + 1;
       setFailCount(nextFailCount);
@@ -65,6 +76,19 @@ export default function OnboardingPage() {
     } finally {
       setEvalBusy(false);
     }
+  }
+
+  function proceedToPayoff() {
+    if (!pendingEvaluationId) {
+      window.location.assign('/');
+      return;
+    }
+    window.history.pushState(
+      {},
+      '',
+      `/onboarding/evaluation/${pendingEvaluationId}`,
+    );
+    window.dispatchEvent(new PopStateEvent('popstate'));
   }
 
   function skipEvaluation() {
@@ -86,6 +110,9 @@ export default function OnboardingPage() {
         <JobInputStep onSubmit={submitJob} busy={evalBusy} error={jobError} />
       )}
       {step === 'evaluating' && <EvaluationProgressStep />}
+      {step === 'confirm' && profile && (
+        <ConfirmStep initial={profile} onSaved={proceedToPayoff} />
+      )}
       {step === 'failed-skip' && (
         <div className="mx-auto flex max-w-xl flex-col gap-3 rounded-2xl border border-line p-6">
           <p className="text-[15px] leading-relaxed text-ink-2">

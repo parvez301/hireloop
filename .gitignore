@@ -48,3 +48,4 @@ cdk.context.json
 .claude/
 **/CLAUDE.md
 !/CLAUDE.md
+design_handoff/

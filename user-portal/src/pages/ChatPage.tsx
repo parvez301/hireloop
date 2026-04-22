@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { AppShell } from '../components/layout/AppShell';
+import { WorkspaceShell } from '../components/workspace/WorkspaceShell';
 import { InputBar } from '../components/chat/InputBar';
 import { MessageList } from '../components/chat/MessageList';
 import { ApiError, api, type Conversation, type Message } from '../lib/api';
@@ -86,7 +86,7 @@ export default function ChatPage() {
   };
 
   return (
-    <AppShell>
+    <WorkspaceShell>
       <div className="flex min-h-[70vh] flex-col gap-4">
         {trialExpired && (
           <div
@@ -110,6 +110,6 @@ export default function ChatPage() {
         {error && <p className="text-sm text-[#e03e3e]">Error: {error}</p>}
         <InputBar disabled={pending || !conversation || trialExpired} onSend={send} />
       </div>
-    </AppShell>
+    </WorkspaceShell>
   );
 }
