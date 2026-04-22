@@ -42,7 +42,7 @@ cdk.context.json
 !.env.example
 
 # Superpowers
-.superpowers/brainstorm/
+.superpowers/
 
 # Claude Code artifacts (auto-generated per-directory, keep the root CLAUDE.md)
 .claude/
