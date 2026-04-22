@@ -2,12 +2,13 @@ import { useEffect, useState } from 'react';
 
 import { PaywallModal } from './components/billing/PaywallModal';
 import { api } from './lib/api';
-import { hostedUiUrl, isAuthenticated } from './lib/auth';
+import { isAuthenticated } from './lib/auth';
 import AuthCallbackPage from './pages/AuthCallbackPage';
 import BillingPage from './pages/BillingPage';
 import ChatPage from './pages/ChatPage';
 import InterviewPrepDetailPage from './pages/InterviewPrepDetailPage';
 import InterviewPrepListPage from './pages/InterviewPrepListPage';
+import LoginPage from './pages/LoginPage';
 import NegotiationDetailPage from './pages/NegotiationDetailPage';
 import NegotiationListPage from './pages/NegotiationListPage';
 import OnboardingPage from './pages/OnboardingPage';
@@ -15,12 +16,15 @@ import OnboardingPayoffPage from './pages/OnboardingPayoffPage';
 import PipelinePage from './pages/PipelinePage';
 import ScanDetailPage from './pages/ScanDetailPage';
 import ScansPage from './pages/ScansPage';
+import SignupPage from './pages/SignupPage';
 import StoryBankPage from './pages/StoryBankPage';
 import SubscribeRedirect from './pages/SubscribeRedirect';
+import VerifyEmailPage from './pages/VerifyEmailPage';
 
 function matchRoute(pathname: string) {
   if (pathname === '/signup') return 'signup';
   if (pathname === '/login') return 'login';
+  if (pathname === '/auth/verify') return 'auth-verify';
   if (pathname === '/auth/callback') return 'auth-callback';
   if (pathname === '/settings/billing') return 'billing';
   if (pathname === '/billing/success') return 'subscribe-redirect';
@@ -38,10 +42,15 @@ function matchRoute(pathname: string) {
   return 'chat';
 }
 
-const ROUTES_THAT_SKIP_ONBOARDING = new Set([
+const PUBLIC_ROUTES = new Set([
   'signup',
   'login',
+  'auth-verify',
   'auth-callback',
+]);
+
+const ROUTES_THAT_SKIP_ONBOARDING = new Set([
+  ...PUBLIC_ROUTES,
   'billing',
   'subscribe-redirect',
   'onboarding',
@@ -61,14 +70,10 @@ function App() {
   }, []);
 
   const route = matchRoute(path);
-  const isPublicRoute = route === 'signup' || route === 'login' || route === 'auth-callback';
+  const isPublicRoute = PUBLIC_ROUTES.has(route);
   const [needsOnboarding, setNeedsOnboarding] = useState<boolean | null>(null);
 
   useEffect(() => {
-    if (route === 'signup' || route === 'login') {
-      window.location.replace(hostedUiUrl(route));
-      return;
-    }
     if (!isPublicRoute && !isAuthenticated()) {
       window.location.replace('/login');
     }
@@ -96,22 +101,18 @@ function App() {
     }
   }, [needsOnboarding, route]);
 
-  if (route === 'signup' || route === 'login') {
-    return (
-      <div className="flex min-h-screen items-center justify-center text-sm text-gray-500">
-        Redirecting to sign-in…
-      </div>
-    );
-  }
-
   if (!isPublicRoute && !isAuthenticated()) {
     return (
-      <div className="flex min-h-screen items-center justify-center text-sm text-gray-500">
+      <div className="flex min-h-screen items-center justify-center text-sm text-ink-3">
         Redirecting to sign-in…
       </div>
     );
   }
 
+  const verifyEmail =
+    route === 'auth-verify'
+      ? new URLSearchParams(window.location.search).get('e') ?? ''
+      : '';
   const interviewPrepId =
     route === 'interview-prep-detail' ? path.replace(/^\/interview-prep\//, '') : '';
   const negotiationId =
@@ -121,6 +122,9 @@ function App() {
 
   return (
     <>
+      {route === 'login' && <LoginPage />}
+      {route === 'signup' && <SignupPage />}
+      {route === 'auth-verify' && <VerifyEmailPage email={verifyEmail} />}
       {route === 'auth-callback' && <AuthCallbackPage />}
       {route === 'onboarding' && <OnboardingPage />}
       {route === 'onboarding-payoff' && onboardingPayoffId && (
