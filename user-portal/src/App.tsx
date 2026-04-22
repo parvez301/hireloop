@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { PaywallModal } from './components/billing/PaywallModal';
+import { api } from './lib/api';
 import { hostedUiUrl, isAuthenticated } from './lib/auth';
 import AuthCallbackPage from './pages/AuthCallbackPage';
 import BillingPage from './pages/BillingPage';
@@ -9,6 +10,8 @@ import InterviewPrepDetailPage from './pages/InterviewPrepDetailPage';
 import InterviewPrepListPage from './pages/InterviewPrepListPage';
 import NegotiationDetailPage from './pages/NegotiationDetailPage';
 import NegotiationListPage from './pages/NegotiationListPage';
+import OnboardingPage from './pages/OnboardingPage';
+import OnboardingPayoffPage from './pages/OnboardingPayoffPage';
 import PipelinePage from './pages/PipelinePage';
 import ScanDetailPage from './pages/ScanDetailPage';
 import ScansPage from './pages/ScansPage';
@@ -22,6 +25,8 @@ function matchRoute(pathname: string) {
   if (pathname === '/settings/billing') return 'billing';
   if (pathname === '/billing/success') return 'subscribe-redirect';
   if (pathname === '/billing/cancel') return 'subscribe-redirect';
+  if (pathname === '/onboarding') return 'onboarding';
+  if (pathname.startsWith('/onboarding/evaluation/')) return 'onboarding-payoff';
   if (pathname === '/pipeline') return 'pipeline';
   if (pathname === '/scans') return 'scans';
   if (pathname.startsWith('/scans/')) return 'scan-detail';
@@ -31,6 +36,19 @@ function matchRoute(pathname: string) {
   if (pathname === '/negotiations') return 'negotiations-list';
   if (pathname.startsWith('/negotiations/')) return 'negotiation-detail';
   return 'chat';
+}
+
+const ROUTES_THAT_SKIP_ONBOARDING = new Set([
+  'signup',
+  'login',
+  'auth-callback',
+  'billing',
+  'subscribe-redirect',
+  'onboarding',
+]);
+
+function requiresProfile(route: string): boolean {
+  return !ROUTES_THAT_SKIP_ONBOARDING.has(route);
 }
 
 function App() {
@@ -44,6 +62,7 @@ function App() {
 
   const route = matchRoute(path);
   const isPublicRoute = route === 'signup' || route === 'login' || route === 'auth-callback';
+  const [needsOnboarding, setNeedsOnboarding] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (route === 'signup' || route === 'login') {
@@ -54,6 +73,28 @@ function App() {
       window.location.replace('/login');
     }
   }, [route, isPublicRoute]);
+
+  useEffect(() => {
+    if (!isAuthenticated()) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await api.profile.get();
+        if (!cancelled) setNeedsOnboarding(response.data.onboarding_state !== 'done');
+      } catch {
+        if (!cancelled) setNeedsOnboarding(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (needsOnboarding && requiresProfile(route)) {
+      window.location.replace('/onboarding');
+    }
+  }, [needsOnboarding, route]);
 
   if (route === 'signup' || route === 'login') {
     return (
@@ -75,10 +116,16 @@ function App() {
     route === 'interview-prep-detail' ? path.replace(/^\/interview-prep\//, '') : '';
   const negotiationId =
     route === 'negotiation-detail' ? path.replace(/^\/negotiations\//, '') : '';
+  const onboardingPayoffId =
+    route === 'onboarding-payoff' ? path.replace(/^\/onboarding\/evaluation\//, '') : '';
 
   return (
     <>
       {route === 'auth-callback' && <AuthCallbackPage />}
+      {route === 'onboarding' && <OnboardingPage />}
+      {route === 'onboarding-payoff' && onboardingPayoffId && (
+        <OnboardingPayoffPage id={onboardingPayoffId} />
+      )}
       {route === 'chat' && <ChatPage />}
       {route === 'billing' && <BillingPage />}
       {route === 'subscribe-redirect' && <SubscribeRedirect />}
