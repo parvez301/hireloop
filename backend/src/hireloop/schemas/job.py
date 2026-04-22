@@ -27,6 +27,13 @@ class JobCreate(BaseModel):
         return self
 
 
+class JobParseTextRequest(BaseModel):
+    """Payload for POST /jobs/parse-text — pasted JD text with optional source URL."""
+
+    text: str = Field(..., min_length=1, max_length=50_000)
+    source_url: str | None = None
+
+
 class JobOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
