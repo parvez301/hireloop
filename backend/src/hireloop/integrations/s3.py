@@ -17,10 +17,17 @@ def get_s3_client() -> Any:
     }
     if settings.aws_endpoint_url:
         kwargs["endpoint_url"] = settings.aws_endpoint_url
-    if settings.aws_access_key_id:
+    # Only pass explicit creds when NOT running under Lambda. Lambda injects
+    # AKID + SECRET + SESSION_TOKEN env vars for the exec role's temp creds;
+    # if we only forward AKID+SECRET to boto3 (dropping the session token),
+    # STS rejects them with InvalidAccessKeyId. Letting boto3's default
+    # credential chain handle Lambda lets it pick up all three automatically.
+    if settings.aws_endpoint_url and settings.aws_access_key_id:
         kwargs["aws_access_key_id"] = settings.aws_access_key_id
-    if settings.aws_secret_access_key:
-        kwargs["aws_secret_access_key"] = settings.aws_secret_access_key
+        if settings.aws_secret_access_key:
+            kwargs["aws_secret_access_key"] = settings.aws_secret_access_key
+        if settings.aws_session_token:
+            kwargs["aws_session_token"] = settings.aws_session_token
     return boto3.client(**kwargs)
 
 

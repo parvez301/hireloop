@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     aws_endpoint_url: str | None = None
     aws_access_key_id: str | None = None
     aws_secret_access_key: str | None = None
+    aws_session_token: str | None = None
 
     cognito_user_pool_id: str
     cognito_client_id: str
