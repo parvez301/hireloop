@@ -1,6 +1,6 @@
 from typing import Any
 
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 from hireloop.schemas.common import ORMModel, TimestampedORM
 
@@ -27,3 +27,7 @@ class ProfileResponse(TimestampedORM):
     github_url: str | None
     portfolio_url: str | None
     onboarding_state: str
+
+
+class ResumeTextRequest(BaseModel):
+    text: str = Field(..., min_length=1, max_length=50_000)

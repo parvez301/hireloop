@@ -122,6 +122,27 @@ async def upload_resume(
     return profile
 
 
+async def upload_resume_text(
+    db: AsyncSession,
+    profile: Profile,
+    text: str,
+) -> Profile:
+    """Store pasted resume text directly as master_resume_md.
+
+    Skips S3 upload and the PDF/DOCX parser — the caller has given us
+    markdown-ish text already. Still advances onboarding on success.
+    """
+    profile.master_resume_md = text
+    profile.parsed_resume_json = {"text": text, "content_type": "text/markdown"}
+
+    became_done = _advance_onboarding(profile)
+    if became_done:
+        await _on_onboarding_done(db, profile)
+
+    await db.flush()
+    return profile
+
+
 async def export_user_data(db: AsyncSession, user: User) -> dict[str, Any]:
     profile = await get_or_create_profile(db, user)
     story_rows = await db.execute(select(StarStory).where(StarStory.user_id == user.id))
