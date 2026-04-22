@@ -310,6 +310,26 @@ export interface ParsedJob {
 
 export type EvaluationGrade = 'A' | 'A-' | 'B+' | 'B' | 'C';
 
+export interface EvaluationDetail {
+  id: string;
+  user_id: string;
+  job_id: string;
+  overall_grade: string;
+  dimension_scores: Record<
+    string,
+    { score: number; grade: string; reasoning: string; signals?: string[] }
+  >;
+  reasoning: string;
+  red_flags: string[] | null;
+  personalization: string | null;
+  match_score: number;
+  recommendation: 'strong_match' | 'worth_exploring' | 'skip';
+  model_used: string;
+  tokens_used: number | null;
+  cached: boolean;
+  created_at: string;
+}
+
 export interface FirstEvaluationResponse {
   evaluation: {
     id: string;
@@ -525,6 +545,11 @@ export const api = {
         '/api/v1/onboarding/first-evaluation',
         body,
       ),
+  },
+
+  evaluations: {
+    get: (id: string) =>
+      request<{ data: EvaluationDetail }>('GET', `/api/v1/evaluations/${id}`),
   },
 
   feedback: {

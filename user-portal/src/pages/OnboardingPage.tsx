@@ -36,6 +36,14 @@ export default function OnboardingPage() {
     try {
       const response = await api.onboarding.firstEvaluation({ job_input: input });
       const evaluationId = response.data.evaluation.id;
+      try {
+        sessionStorage.setItem(
+          `onboarding-payoff-${evaluationId}`,
+          JSON.stringify(response.data),
+        );
+      } catch {
+        // sessionStorage may fail in private mode; payoff page falls back to API fetch.
+      }
       window.history.pushState({}, '', `/onboarding/evaluation/${evaluationId}`);
       window.dispatchEvent(new PopStateEvent('popstate'));
     } catch (error) {
