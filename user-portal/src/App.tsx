@@ -6,6 +6,7 @@ import { isAuthenticated } from './lib/auth';
 import AuthCallbackPage from './pages/AuthCallbackPage';
 import BillingPage from './pages/BillingPage';
 import ChatPage from './pages/ChatPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import InterviewPrepDetailPage from './pages/InterviewPrepDetailPage';
 import InterviewPrepListPage from './pages/InterviewPrepListPage';
 import LoginPage from './pages/LoginPage';
@@ -14,6 +15,7 @@ import NegotiationListPage from './pages/NegotiationListPage';
 import OnboardingPage from './pages/OnboardingPage';
 import OnboardingPayoffPage from './pages/OnboardingPayoffPage';
 import PipelinePage from './pages/PipelinePage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 import ScanDetailPage from './pages/ScanDetailPage';
 import ScansPage from './pages/ScansPage';
 import SignupPage from './pages/SignupPage';
@@ -25,6 +27,8 @@ function matchRoute(pathname: string) {
   if (pathname === '/signup') return 'signup';
   if (pathname === '/login') return 'login';
   if (pathname === '/auth/verify') return 'auth-verify';
+  if (pathname === '/auth/forgot') return 'auth-forgot';
+  if (pathname === '/auth/reset') return 'auth-reset';
   if (pathname === '/auth/callback') return 'auth-callback';
   if (pathname === '/settings/billing') return 'billing';
   if (pathname === '/billing/success') return 'subscribe-redirect';
@@ -46,6 +50,8 @@ const PUBLIC_ROUTES = new Set([
   'signup',
   'login',
   'auth-verify',
+  'auth-forgot',
+  'auth-reset',
   'auth-callback',
 ]);
 
@@ -113,6 +119,10 @@ function App() {
     route === 'auth-verify'
       ? new URLSearchParams(window.location.search).get('e') ?? ''
       : '';
+  const resetToken =
+    route === 'auth-reset'
+      ? new URLSearchParams(window.location.search).get('token') ?? ''
+      : '';
   const interviewPrepId =
     route === 'interview-prep-detail' ? path.replace(/^\/interview-prep\//, '') : '';
   const negotiationId =
@@ -125,6 +135,8 @@ function App() {
       {route === 'login' && <LoginPage />}
       {route === 'signup' && <SignupPage />}
       {route === 'auth-verify' && <VerifyEmailPage email={verifyEmail} />}
+      {route === 'auth-forgot' && <ForgotPasswordPage />}
+      {route === 'auth-reset' && <ResetPasswordPage token={resetToken} />}
       {route === 'auth-callback' && <AuthCallbackPage />}
       {route === 'onboarding' && <OnboardingPage />}
       {route === 'onboarding-payoff' && onboardingPayoffId && (
