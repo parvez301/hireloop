@@ -115,10 +115,6 @@ function App() {
     );
   }
 
-  const verifyEmail =
-    route === 'auth-verify'
-      ? new URLSearchParams(window.location.search).get('e') ?? ''
-      : '';
   const resetToken =
     route === 'auth-reset'
       ? new URLSearchParams(window.location.search).get('token') ?? ''
@@ -134,7 +130,7 @@ function App() {
     <>
       {route === 'login' && <LoginPage />}
       {route === 'signup' && <SignupPage />}
-      {route === 'auth-verify' && <VerifyEmailPage email={verifyEmail} />}
+      {route === 'auth-verify' && <VerifyEmailPage />}
       {route === 'auth-forgot' && <ForgotPasswordPage />}
       {route === 'auth-reset' && <ResetPasswordPage token={resetToken} />}
       {route === 'auth-callback' && <AuthCallbackPage />}

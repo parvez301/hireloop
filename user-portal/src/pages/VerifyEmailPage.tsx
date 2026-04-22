@@ -10,11 +10,19 @@ import { ApiError } from '../lib/api';
 import { storeSession } from '../lib/auth';
 import { resendCodeRequest, verifyEmailRequest } from '../lib/authApi';
 
-type Props = { email: string };
-
 const RESEND_COOLDOWN_S = 30;
+const STASH_KEY = 'auth:pendingVerifyEmail';
 
-export default function VerifyEmailPage({ email }: Props) {
+function initialEmail(): string {
+  try {
+    return sessionStorage.getItem(STASH_KEY) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+export default function VerifyEmailPage() {
+  const [email, setEmail] = useState(initialEmail);
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,6 +42,11 @@ export default function VerifyEmailPage({ email }: Props) {
     try {
       const session = await verifyEmailRequest({ email, code });
       storeSession(session);
+      try {
+        sessionStorage.removeItem(STASH_KEY);
+      } catch {
+        // ignore
+      }
       window.location.assign('/');
     } catch (caught) {
       const message =
@@ -77,7 +90,11 @@ export default function VerifyEmailPage({ email }: Props) {
           </span>
         </>
       }
-      subtitle={`We sent a 6-digit code to ${email || 'your email'}. Enter it below to finish setting up your account.`}
+      subtitle={
+        email
+          ? `We sent a 6-digit code to ${email}. Enter it below to finish setting up your account.`
+          : "Enter the email you just signed up with, then the 6-digit code we sent to it."
+      }
       footer={
         <span>
           Wrong email?{' '}
@@ -88,6 +105,17 @@ export default function VerifyEmailPage({ email }: Props) {
       }
     >
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
+        {!initialEmail() && (
+          <AuthField
+            label="Email"
+            type="email"
+            autoComplete="email"
+            required
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            disabled={busy}
+          />
+        )}
         <AuthField
           label="6-digit code"
           inputMode="numeric"
@@ -102,7 +130,7 @@ export default function VerifyEmailPage({ email }: Props) {
           disabled={busy}
           placeholder="123456"
         />
-        <GradientSubmit disabled={busy || code.length !== 6}>
+        <GradientSubmit disabled={busy || !email || code.length !== 6}>
           {busy ? 'Verifying…' : 'Verify and continue'}
         </GradientSubmit>
         <div className="flex items-center justify-between text-[12px] text-ink-3">

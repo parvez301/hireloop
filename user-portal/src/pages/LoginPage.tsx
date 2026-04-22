@@ -27,7 +27,12 @@ export default function LoginPage() {
       window.location.assign('/');
     } catch (caught) {
       if (caught instanceof ApiError && caught.code === 'EMAIL_UNVERIFIED') {
-        window.location.assign(`/auth/verify?e=${encodeURIComponent(email)}`);
+        try {
+          sessionStorage.setItem('auth:pendingVerifyEmail', email);
+        } catch {
+          // ignore — verify page will prompt for email if needed
+        }
+        window.location.assign('/auth/verify');
         return;
       }
       const message =

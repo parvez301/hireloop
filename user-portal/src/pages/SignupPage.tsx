@@ -23,7 +23,13 @@ export default function SignupPage() {
     setError(null);
     try {
       await signupRequest({ firstName, lastName, email, password });
-      window.location.assign(`/auth/verify?e=${encodeURIComponent(email)}`);
+      try {
+        sessionStorage.setItem('auth:pendingVerifyEmail', email);
+      } catch {
+        // sessionStorage may fail in private-mode or when disabled; the
+        // verify page falls back to asking the user for their email.
+      }
+      window.location.assign('/auth/verify');
     } catch (caught) {
       const message =
         caught instanceof ApiError ? caught.message : (caught as Error).message;
