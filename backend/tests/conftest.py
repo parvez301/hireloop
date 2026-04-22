@@ -11,6 +11,11 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 os.environ.setdefault("ENVIRONMENT", "test")
+# Existing integration tests patch `hireloop.integrations.cognito.CognitoJwtVerifier.verify`
+# — keep AUTH_MODE=cognito in the test harness so that dispatcher path stays
+# active. Production default is `custom`; tests that exercise the custom flow
+# set AUTH_MODE themselves.
+os.environ.setdefault("AUTH_MODE", "cognito")
 
 _backend_root = Path(__file__).resolve().parent.parent
 _dotenv = _backend_root / ".env"

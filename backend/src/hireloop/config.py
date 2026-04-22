@@ -35,7 +35,9 @@ class Settings(BaseSettings):
     cognito_jwks_url: str
 
     # In-house auth (feature flag: AUTH_MODE='cognito'|'custom').
-    auth_mode: str = "cognito"
+    # Default is 'custom' — Cognito path stays available behind the flag for
+    # rollback and for legacy test harnesses that mock CognitoJwtVerifier.
+    auth_mode: str = "custom"
     jwt_signing_secret: str = "dev-secret-change-me"
     jwt_issuer: str = "hireloop"
     jwt_audience: str = "hireloop-users"
