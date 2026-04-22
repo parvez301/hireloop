@@ -52,8 +52,17 @@ class EvaluationService:
         job_url: str | None = None,
         job_description: str | None = None,
     ) -> Evaluation:
-        profile = await self._load_profile()
         parsed = await self._parse(job_url=job_url, job_description=job_description)
+        return await self.evaluate_parsed(parsed)
+
+    async def evaluate_parsed(self, parsed: ParsedJob) -> Evaluation:
+        """Run the scoring pipeline against an already-parsed job.
+
+        Splits out the work downstream of parsing so callers that have already
+        paid the parse cost (e.g. the onboarding first-evaluation endpoint)
+        don't double-call the LLM parser.
+        """
+        profile = await self._load_profile()
 
         job = await self._upsert_job(parsed)
 
