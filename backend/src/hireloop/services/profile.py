@@ -30,24 +30,20 @@ async def get_or_create_profile(db: AsyncSession, user: User) -> Profile:
 
 
 def _advance_onboarding(profile: Profile) -> bool:
-    """Advance the onboarding state machine.
+    """Advance the collapsed onboarding state machine.
+
+    2026-04-22: Preferences collection is no longer part of the gate. A
+    profile with a parsed resume transitions directly to 'done'. See
+    docs/superpowers/specs/2026-04-22-onboarding-redesign-design.md.
 
     Returns True if the profile transitioned to the terminal 'done' state
     on this call (i.e. was not 'done' before).
     """
     was_done = profile.onboarding_state == "done"
 
-    roles = profile.target_roles
-    locations = profile.target_locations
-    has_prefs = bool(roles and locations)
+    has_resume = bool(profile.master_resume_md)
 
-    if profile.onboarding_state == "resume_upload":
-        if profile.master_resume_md:
-            profile.onboarding_state = "preferences"
-        elif has_prefs:
-            profile.onboarding_state = "preferences"
-
-    if profile.onboarding_state == "preferences" and has_prefs:
+    if profile.onboarding_state in ("resume_upload", "preferences") and has_resume:
         profile.onboarding_state = "done"
 
     return profile.onboarding_state == "done" and not was_done
@@ -117,8 +113,6 @@ async def upload_resume(
     profile.master_resume_s3 = s3_key
     profile.master_resume_md = parsed["markdown"]
     profile.parsed_resume_json = {"text": parsed["text"], "content_type": parsed["content_type"]}
-    if profile.onboarding_state == "resume_upload":
-        profile.onboarding_state = "preferences"
 
     became_done = _advance_onboarding(profile)
     if became_done:
