@@ -15,6 +15,15 @@ vi.mock('../lib/api', () => ({
       firstEvaluation: vi.fn(),
     },
   },
+  ApiError: class extends Error {
+    constructor(
+      public status: number,
+      public code: string,
+      message: string,
+    ) {
+      super(message);
+    }
+  },
 }));
 
 describe('OnboardingPage', () => {
@@ -28,7 +37,7 @@ describe('OnboardingPage', () => {
     });
     render(<OnboardingPage />);
     await waitFor(() =>
-      expect(screen.getByText(/drag and drop/i)).toBeInTheDocument(),
+      expect(screen.getByText(/drop your resume/i)).toBeInTheDocument(),
     );
   });
 
@@ -41,9 +50,9 @@ describe('OnboardingPage', () => {
     });
     render(<OnboardingPage />);
     await waitFor(() =>
-      screen.getByRole('button', { name: /paste text/i }),
+      screen.getByRole('button', { name: /paste plain text/i }),
     );
-    fireEvent.click(screen.getByRole('button', { name: /paste text/i }));
+    fireEvent.click(screen.getByRole('button', { name: /paste plain text/i }));
     fireEvent.change(screen.getByRole('textbox'), {
       target: { value: 'Resume content' },
     });

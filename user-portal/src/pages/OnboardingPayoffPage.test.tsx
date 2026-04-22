@@ -57,12 +57,16 @@ describe('OnboardingPayoffPage', () => {
       JSON.stringify(MOCK_HANDOFF),
     );
     render(<OnboardingPayoffPage id="eval-1" />);
-    await waitFor(() => screen.getByText('Senior Backend'));
-    expect(screen.getByText('Acme · Remote')).toBeInTheDocument();
-    expect(screen.getByText('82')).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: /tailor my cv/i }),
-    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: /tailor my cv/i }),
+      ).toBeInTheDocument(),
+    );
+    expect(screen.getByText('Senior Backend')).toBeInTheDocument();
+    expect(screen.getByText('Acme')).toBeInTheDocument();
+    expect(screen.getByText(/Remote/)).toBeInTheDocument();
+    // Hero score + sub-score bars both can render 82; just assert at least one.
+    expect(screen.getAllByText('82').length).toBeGreaterThanOrEqual(1);
     expect(
       screen.getByRole('button', { name: /generate interview prep/i }),
     ).toBeInTheDocument();
@@ -80,7 +84,9 @@ describe('OnboardingPayoffPage', () => {
     });
     render(<OnboardingPayoffPage id="eval-1" />);
     await waitFor(() => expect(api.evaluations.get).toHaveBeenCalledWith('eval-1'));
-    expect(screen.getByText('82')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getAllByText('82').length).toBeGreaterThanOrEqual(1),
+    );
   });
 
   it('creates an application on Save to pipeline click', async () => {
@@ -92,7 +98,11 @@ describe('OnboardingPayoffPage', () => {
       data: { id: 'app-1' } as never,
     });
     render(<OnboardingPayoffPage id="eval-1" />);
-    await waitFor(() => screen.getByText('Senior Backend'));
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: /save to pipeline/i }),
+      ).toBeInTheDocument(),
+    );
     fireEvent.click(screen.getByRole('button', { name: /save to pipeline/i }));
     await waitFor(() =>
       expect(api.applications.create).toHaveBeenCalledWith({

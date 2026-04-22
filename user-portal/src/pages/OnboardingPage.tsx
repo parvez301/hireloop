@@ -2,10 +2,21 @@ import { useEffect, useState } from 'react';
 
 import { EvaluationProgressStep } from '../components/onboarding/EvaluationProgressStep';
 import { JobInputStep } from '../components/onboarding/JobInputStep';
+import {
+  OnboardingShell,
+  type OnboardingStepName,
+} from '../components/onboarding/OnboardingShell';
 import { ResumeUploadStep } from '../components/onboarding/ResumeUploadStep';
 import { api } from '../lib/api';
 
 type WizardStep = 'loading' | 'resume' | 'job' | 'evaluating' | 'failed-skip';
+
+function shellStepFor(step: WizardStep): OnboardingStepName {
+  if (step === 'resume') return 'resume';
+  if (step === 'evaluating') return 'evaluating';
+  if (step === 'failed-skip') return 'job';
+  return 'job';
+}
 
 export default function OnboardingPage() {
   const [step, setStep] = useState<WizardStep>('loading');
@@ -60,40 +71,36 @@ export default function OnboardingPage() {
     window.location.assign('/');
   }
 
-  return (
-    <div className="mx-auto flex min-h-screen max-w-2xl flex-col gap-8 px-6 py-16">
-      <header>
-        <h1 className="text-3xl font-semibold">
-          <span className="bg-gradient-to-br from-accent-teal via-accent-cobalt to-accent-violet bg-clip-text text-transparent">
-            Let's get you set up
-          </span>
-        </h1>
-        <p className="mt-2 text-text-secondary">
-          Less than a minute. We'll turn one job into a full evaluation so you can see what we do.
-        </p>
-      </header>
+  if (step === 'loading') {
+    return (
+      <OnboardingShell activeStep="resume">
+        <p className="text-ink-3">Loading…</p>
+      </OnboardingShell>
+    );
+  }
 
-      {step === 'loading' && <p className="text-text-secondary">Loading…</p>}
+  return (
+    <OnboardingShell activeStep={shellStepFor(step)}>
       {step === 'resume' && <ResumeUploadStep onAdvance={() => setStep('job')} />}
       {step === 'job' && (
         <JobInputStep onSubmit={submitJob} busy={evalBusy} error={jobError} />
       )}
       {step === 'evaluating' && <EvaluationProgressStep />}
       {step === 'failed-skip' && (
-        <div className="flex flex-col gap-3 rounded-xl border border-border p-6">
-          <p>
-            Our evaluation service is having a rough moment. You can skip this and
-            evaluate jobs from the main app.
+        <div className="mx-auto flex max-w-xl flex-col gap-3 rounded-2xl border border-line p-6">
+          <p className="text-[15px] leading-relaxed text-ink-2">
+            Our evaluation service is having a rough moment. You can skip this
+            and evaluate jobs from the main app.
           </p>
           <button
             type="button"
-            className="self-start text-accent-cobalt hover:underline"
+            className="self-start text-[13px] text-accent-cobalt underline decoration-dotted underline-offset-4 hover:text-ink-2"
             onClick={skipEvaluation}
           >
             Skip this step →
           </button>
         </div>
       )}
-    </div>
+    </OnboardingShell>
   );
 }
