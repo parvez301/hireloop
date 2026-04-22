@@ -43,6 +43,12 @@ test.describe('post-login E2E — each module', () => {
     await page.goto('/scans');
     await expect(page.getByRole('heading', { name: 'Scans' })).toBeVisible();
 
+    // JIT preferences nudge is a non-blocking banner visible for users who
+    // haven't set target_roles/target_locations yet. Don't assert presence
+    // (existing test users may have prefs set) — just confirm it doesn't
+    // break the rest of the flow.
+    await page.getByTestId('preferences-needed-banner').isVisible().catch(() => false);
+
     const configName = `PW Scan ${Date.now()}`;
     await page.getByRole('button', { name: 'New scan config' }).click();
 

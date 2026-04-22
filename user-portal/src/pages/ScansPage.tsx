@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { AppShell } from '../components/layout/AppShell';
-import { api, type ScanConfig, type ScanRun } from '../lib/api';
+import { api, type Profile, type ScanConfig, type ScanRun } from '../lib/api';
 import ScanConfigEditor from './ScanConfigEditor';
 
 export default function ScansPage() {
@@ -10,6 +10,7 @@ export default function ScansPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<ScanConfig | null | 'new'>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -35,6 +36,25 @@ export default function ScansPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.profile
+      .get()
+      .then((response) => {
+        if (!cancelled) setProfile(response.data);
+      })
+      .catch(() => {
+        // JIT banner is nice-to-have; ignore fetch failures.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const prefsIncomplete =
+    profile !== null &&
+    (!profile.target_roles?.length || !profile.target_locations?.length);
 
   async function runScan(config: ScanConfig) {
     try {
@@ -68,6 +88,19 @@ export default function ScansPage() {
             New scan config
           </button>
         </div>
+
+        {prefsIncomplete && (
+          <div
+            role="alert"
+            data-testid="preferences-needed-banner"
+            className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+          >
+            <p className="font-medium">Set your scan targets first</p>
+            <p className="mt-1 text-amber-900/90">
+              Add the roles and locations you want so we know what to look for.
+            </p>
+          </div>
+        )}
 
         {error && <p className="mt-4 text-sm text-[#e03e3e]">Error: {error}</p>}
 
