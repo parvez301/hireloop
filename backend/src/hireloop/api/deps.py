@@ -9,7 +9,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from hireloop.api.errors import AppError
 from hireloop.config import get_settings
 from hireloop.db import get_db
-from hireloop.integrations.cognito import CognitoJwtVerifier, get_verifier
+from hireloop.integrations.auth_jwt import JwtVerifier
+from hireloop.integrations.auth_jwt import get_verifier as get_custom_verifier
+from hireloop.integrations.cognito import CognitoJwtVerifier
+from hireloop.integrations.cognito import get_verifier as get_cognito_verifier
 from hireloop.models.user import User
 from hireloop.services.auth import AuthUser, extract_auth_user
 from hireloop.services.rate_limit import InMemoryRateLimiter, RateLimiter, SupportsRateCheck
@@ -84,8 +87,23 @@ _DEV_BYPASS_USER = AuthUser(
 )
 
 
+def get_active_verifier() -> CognitoJwtVerifier | JwtVerifier:
+    """Pick the JWT verifier implementation based on AUTH_MODE.
+
+    'cognito' (default) keeps the Hosted-UI flow alive; 'custom' routes to
+    the in-house HS256 verifier. Swap the env var to cutover an environment
+    without a code deploy.
+    """
+    mode = get_settings().auth_mode.lower()
+    if mode == "custom":
+        return get_custom_verifier()
+    return get_cognito_verifier()
+
+
 async def get_auth_user(
-    verifier: Annotated[CognitoJwtVerifier, Depends(get_verifier)],
+    verifier: Annotated[
+        CognitoJwtVerifier | JwtVerifier, Depends(get_active_verifier)
+    ],
     authorization: Annotated[str | None, Header()] = None,
 ) -> AuthUser:
     if not authorization or not authorization.lower().startswith("bearer "):
