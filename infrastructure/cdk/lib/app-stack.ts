@@ -139,6 +139,26 @@ export class AppStack extends cdk.Stack {
       environment: lambdaEnv,
     });
 
+    // Resume uploads, CV PDFs, and other user artifacts live in the shared
+    // assets bucket. Grant the API Lambda object-level read/write/delete.
+    apiFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: [
+          "s3:PutObject",
+          "s3:GetObject",
+          "s3:DeleteObject",
+          "s3:AbortMultipartUpload",
+        ],
+        resources: [`arn:aws:s3:::${assetsBucketName}/*`],
+      }),
+    );
+    apiFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["s3:ListBucket", "s3:GetBucketLocation"],
+        resources: [`arn:aws:s3:::${assetsBucketName}`],
+      }),
+    );
+
     // Migrations connect as the RDS master user because the per-env app user
     // is provisioned CRUD-only (no schema DDL) by the Data stack's DbBootstrap.
     // Master-secret ARN is published by Data stack to SSM at synth-time.
