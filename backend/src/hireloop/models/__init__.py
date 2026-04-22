@@ -1,4 +1,9 @@
 from hireloop.models.application import Application  # noqa: F401
+from hireloop.models.auth import (  # noqa: F401
+    AuthRefreshToken,
+    EmailVerificationCode,
+    PasswordResetToken,
+)
 from hireloop.models.base import Base
 from hireloop.models.batch_run import BatchItem, BatchRun  # noqa: F401
 from hireloop.models.conversation import Conversation, Message

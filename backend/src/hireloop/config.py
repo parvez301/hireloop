@@ -34,6 +34,15 @@ class Settings(BaseSettings):
     cognito_region: str
     cognito_jwks_url: str
 
+    # In-house auth (feature flag: AUTH_MODE='cognito'|'custom').
+    auth_mode: str = "cognito"
+    jwt_signing_secret: str = "dev-secret-change-me"
+    jwt_issuer: str = "hireloop"
+    jwt_audience: str = "hireloop-users"
+    jwt_access_ttl_minutes: int = 60
+    jwt_refresh_ttl_days: int = 30
+    app_base_url: str = "http://localhost:5173"
+
     anthropic_api_key: str = ""
     # When set, the Anthropic SDK is pointed at this URL instead of
     # api.anthropic.com. Used to route LLM calls through the llm-bridge
