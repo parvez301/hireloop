@@ -45,6 +45,13 @@ class Settings(BaseSettings):
     jwt_refresh_ttl_days: int = 30
     app_base_url: str = "http://localhost:5173"
 
+    # Email transport. 'log' writes to structlog (dev default). 'ses' uses
+    # AWS SES via boto3 — requires the sender identity below to be verified
+    # and the Lambda role to have ses:SendEmail on it.
+    email_provider: str = "log"
+    email_from: str = "no-reply@hireloop.xyz"
+    email_from_name: str = "HireLoop"
+
     anthropic_api_key: str = ""
     # When set, the Anthropic SDK is pointed at this URL instead of
     # api.anthropic.com. Used to route LLM calls through the llm-bridge

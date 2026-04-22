@@ -159,6 +159,18 @@ export class AppStack extends cdk.Stack {
       }),
     );
 
+    // SES is opt-in per env (EMAIL_PROVIDER=ses). Permission is scoped to
+    // the hireloop account's verified identities; sender identity is chosen
+    // at request time via the EMAIL_FROM env var.
+    apiFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["ses:SendEmail", "ses:SendRawEmail"],
+        resources: [
+          `arn:aws:ses:${this.region}:${this.account}:identity/*`,
+        ],
+      }),
+    );
+
     // Migrations connect as the RDS master user because the per-env app user
     // is provisioned CRUD-only (no schema DDL) by the Data stack's DbBootstrap.
     // Master-secret ARN is published by Data stack to SSM at synth-time.
