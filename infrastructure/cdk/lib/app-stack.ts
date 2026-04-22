@@ -432,7 +432,7 @@ ${fetchEnvScript}FETCHENV`,
           "ecr:UploadLayerPart",
           "ecr:CompleteLayerUpload",
         ],
-        resources: [backendRepo.repositoryArn, caddyRepo.repositoryArn],
+        resources: [backendRepo.repositoryArn, caddyRepo.repositoryArn, llmBridgeRepo.repositoryArn],
       }),
     );
     oidcRole.addToPolicy(
