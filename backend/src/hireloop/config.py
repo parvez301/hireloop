@@ -45,7 +45,7 @@ class Settings(BaseSettings):
     google_api_key: str = ""
     # Provider model IDs — confirm against Anthropic / Google docs when upgrading.
     claude_model: str = "claude-sonnet-4-6"
-    gemini_model: str = "gemini-2.0-flash-exp"
+    gemini_model: str = "gemini-2.0-flash"
     enable_prompt_caching: bool = True
     llm_classifier_timeout_s: float = 3.0
     llm_evaluation_timeout_s: float = 60.0

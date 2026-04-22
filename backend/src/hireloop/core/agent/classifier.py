@@ -24,7 +24,7 @@ async def classify_node(state: AgentState) -> dict[str, Any]:
         {
             "event_type": "classify",
             "module": "agent",
-            "model": "gemini-2.0-flash-exp",
+            "model": "gemini-2.0-flash",
             "tokens_used": 50,
             "cost_cents": 1,
         }
