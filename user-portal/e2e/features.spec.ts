@@ -96,4 +96,88 @@ test.describe('post-login E2E — each module', () => {
     await expect(page.getByRole('heading', { name: 'Negotiations' })).toBeVisible();
     await expect(page.getByText(/No negotiations yet/i)).toBeVisible();
   });
+
+  test('7. Onboarding — full flow on a fresh user', async ({ page }) => {
+    // Two LLM calls on bridge (parse + evaluate) — allow ~3 min wall.
+    test.setTimeout(240_000);
+
+    await page.route('https://acme.example.com/jobs/1', async (route) => {
+      const fs = await import('node:fs/promises');
+      const body = await fs.readFile('e2e/fixtures/job.html', 'utf-8');
+      await route.fulfill({ status: 200, contentType: 'text/html', body });
+    });
+
+    await page.goto('/onboarding');
+    await page.setInputFiles('input[type=file]', 'e2e/fixtures/resume.pdf');
+
+    await page.waitForSelector('textarea[placeholder*="https"]', { timeout: 30_000 });
+    await page.locator('textarea').fill('https://acme.example.com/jobs/1');
+    await page.getByRole('button', { name: /evaluat/i }).click();
+
+    await expect(page.getByText(/parsing job description/i)).toBeVisible({
+      timeout: 15_000,
+    });
+
+    await expect(page.getByRole('button', { name: /tailor my cv/i })).toBeVisible({
+      timeout: 200_000,
+    });
+  });
+
+  test('8. Onboarding — paste-text fallback when PDF upload fails', async ({ page }) => {
+    test.setTimeout(60_000);
+
+    await page.route('**/api/v1/profile/resume', (route) =>
+      route.fulfill({
+        status: 422,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          error: { code: 'UNPROCESSABLE_ENTITY', message: 'parse failed' },
+        }),
+      }),
+    );
+
+    await page.goto('/onboarding');
+    await page.setInputFiles('input[type=file]', 'e2e/fixtures/resume.pdf');
+
+    await expect(page.locator('textarea')).toBeVisible({ timeout: 10_000 });
+    await page
+      .locator('textarea')
+      .fill('# Jane Doe\n\nSenior Backend Engineer, 8 yrs Python.\n');
+    await page.getByRole('button', { name: /continue/i }).click();
+
+    await expect(page.getByText(/paste a job/i)).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('9. Onboarding — skip escape after 3 consecutive evaluation failures', async ({
+    page,
+  }) => {
+    test.setTimeout(60_000);
+
+    let attempt = 0;
+    await page.route('**/api/v1/onboarding/first-evaluation', (route) => {
+      attempt += 1;
+      void route.fulfill({
+        status: 500,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          error: { code: 'LLM_TIMEOUT', message: 'eval failed' },
+        }),
+      });
+    });
+
+    await page.goto('/onboarding');
+    await page.setInputFiles('input[type=file]', 'e2e/fixtures/resume.pdf');
+    await page.waitForSelector('textarea[placeholder*="https"]', { timeout: 30_000 });
+
+    for (let index = 0; index < 3; index += 1) {
+      await page.locator('textarea').fill('Senior backend role at Acme');
+      await page.getByRole('button', { name: /evaluat/i }).click();
+      await page.waitForTimeout(1_500);
+    }
+
+    await expect(
+      page.getByRole('button', { name: /skip this step/i }),
+    ).toBeVisible({ timeout: 10_000 });
+    expect(attempt).toBeGreaterThanOrEqual(3);
+  });
 });
