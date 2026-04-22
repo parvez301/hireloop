@@ -10,6 +10,7 @@ class ProfileUpdate(ORMModel):
     target_locations: list[str] | None = None
     min_salary: int | None = Field(default=None, ge=0)
     preferred_industries: list[str] | None = None
+    work_arrangement: str | None = Field(default=None, max_length=32)
     linkedin_url: str | None = None
     github_url: str | None = None
     portfolio_url: str | None = None
@@ -23,6 +24,7 @@ class ProfileResponse(TimestampedORM):
     target_locations: list[str] | None
     min_salary: int | None
     preferred_industries: list[str] | None
+    work_arrangement: str | None
     linkedin_url: str | None
     github_url: str | None
     portfolio_url: str | None

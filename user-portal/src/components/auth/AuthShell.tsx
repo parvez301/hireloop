@@ -1,17 +1,27 @@
 import type { ReactNode } from 'react';
 
+import { AuthBrandPanel } from './AuthBrandPanel';
+
 type Props = {
   eyebrow?: string;
   title: ReactNode;
   subtitle?: ReactNode;
   footer?: ReactNode;
   children: ReactNode;
+  brandPanel?: boolean;
 };
 
-export function AuthShell({ eyebrow, title, subtitle, footer, children }: Props) {
+export function AuthShell({
+  eyebrow,
+  title,
+  subtitle,
+  footer,
+  children,
+  brandPanel = true,
+}: Props) {
   return (
     <div className="flex min-h-screen bg-bg text-ink [font-feature-settings:'ss01','cv11']">
-      <header className="absolute top-0 left-0 right-0 border-b border-line/70 bg-bg/80 backdrop-blur">
+      <header className="absolute top-0 left-0 right-0 z-10 border-b border-line/70 bg-bg/80 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-8">
           <span
             aria-hidden
@@ -27,7 +37,12 @@ export function AuthShell({ eyebrow, title, subtitle, footer, children }: Props)
         </div>
       </header>
 
-      <main className="flex flex-1 items-center justify-center px-6 py-24 animate-fade-up motion-reduce:animate-none">
+      <main
+        className={
+          'flex flex-1 items-center justify-center px-6 py-24 animate-fade-up motion-reduce:animate-none ' +
+          (brandPanel ? 'lg:py-0' : '')
+        }
+      >
         <div className="w-full max-w-md">
           {eyebrow && (
             <div className="text-[11px] uppercase tracking-[0.18em] text-ink-3">
@@ -52,6 +67,8 @@ export function AuthShell({ eyebrow, title, subtitle, footer, children }: Props)
           </p>
         </div>
       </main>
+
+      {brandPanel && <AuthBrandPanel />}
     </div>
   );
 }

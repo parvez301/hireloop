@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { AppShell } from '../components/layout/AppShell';
+import { WorkspaceShell } from '../components/workspace/WorkspaceShell';
 import { ApiError, api, type StarStory } from '../lib/api';
 
 export default function StoryBankPage() {
@@ -51,7 +51,7 @@ export default function StoryBankPage() {
   }
 
   return (
-    <AppShell>
+    <WorkspaceShell>
       <h1 className="text-xl font-semibold">Story bank</h1>
       <p className="mt-1 text-sm text-[#787774]">
         STAR stories power interview prep. Add or edit your accomplishments here.
@@ -110,6 +110,6 @@ export default function StoryBankPage() {
           </li>
         ))}
       </ul>
-    </AppShell>
+    </WorkspaceShell>
   );
 }

@@ -6,15 +6,19 @@ import { isAuthenticated } from './lib/auth';
 import AuthCallbackPage from './pages/AuthCallbackPage';
 import BillingPage from './pages/BillingPage';
 import ChatPage from './pages/ChatPage';
+import DashboardPage from './pages/DashboardPage';
+import DevPrimitivesPage from './pages/DevPrimitivesPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import InterviewPrepDetailPage from './pages/InterviewPrepDetailPage';
 import InterviewPrepListPage from './pages/InterviewPrepListPage';
+import JobDetailPage from './pages/JobDetailPage';
 import LoginPage from './pages/LoginPage';
 import NegotiationDetailPage from './pages/NegotiationDetailPage';
 import NegotiationListPage from './pages/NegotiationListPage';
 import OnboardingPage from './pages/OnboardingPage';
 import OnboardingPayoffPage from './pages/OnboardingPayoffPage';
 import PipelinePage from './pages/PipelinePage';
+import ProfilePage from './pages/ProfilePage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import ScanDetailPage from './pages/ScanDetailPage';
 import ScansPage from './pages/ScansPage';
@@ -38,12 +42,17 @@ function matchRoute(pathname: string) {
   if (pathname === '/pipeline') return 'pipeline';
   if (pathname === '/scans') return 'scans';
   if (pathname.startsWith('/scans/')) return 'scan-detail';
+  if (pathname.startsWith('/jobs/')) return 'job-detail';
   if (pathname === '/story-bank') return 'story-bank';
   if (pathname === '/interview-prep') return 'interview-prep-list';
   if (pathname.startsWith('/interview-prep/')) return 'interview-prep-detail';
   if (pathname === '/negotiations') return 'negotiations-list';
   if (pathname.startsWith('/negotiations/')) return 'negotiation-detail';
-  return 'chat';
+  if (pathname.startsWith('/profile')) return 'profile';
+  if (pathname === '/ask' || pathname === '/chat') return 'chat';
+  if (pathname === '/_dev/primitives') return 'dev-primitives';
+  if (pathname === '/' || pathname === '/dashboard') return 'dashboard';
+  return 'dashboard';
 }
 
 const PUBLIC_ROUTES = new Set([
@@ -53,6 +62,7 @@ const PUBLIC_ROUTES = new Set([
   'auth-forgot',
   'auth-reset',
   'auth-callback',
+  'dev-primitives',
 ]);
 
 const ROUTES_THAT_SKIP_ONBOARDING = new Set([
@@ -125,6 +135,7 @@ function App() {
     route === 'negotiation-detail' ? path.replace(/^\/negotiations\//, '') : '';
   const onboardingPayoffId =
     route === 'onboarding-payoff' ? path.replace(/^\/onboarding\/evaluation\//, '') : '';
+  const jobId = route === 'job-detail' ? path.replace(/^\/jobs\//, '') : '';
 
   return (
     <>
@@ -138,12 +149,14 @@ function App() {
       {route === 'onboarding-payoff' && onboardingPayoffId && (
         <OnboardingPayoffPage id={onboardingPayoffId} />
       )}
+      {route === 'dashboard' && <DashboardPage />}
       {route === 'chat' && <ChatPage />}
       {route === 'billing' && <BillingPage />}
       {route === 'subscribe-redirect' && <SubscribeRedirect />}
       {route === 'pipeline' && <PipelinePage />}
       {route === 'scans' && <ScansPage />}
       {route === 'scan-detail' && <ScanDetailPage />}
+      {route === 'job-detail' && jobId && <JobDetailPage id={jobId} />}
       {route === 'story-bank' && <StoryBankPage />}
       {route === 'interview-prep-list' && <InterviewPrepListPage />}
       {route === 'interview-prep-detail' && interviewPrepId && (
@@ -153,6 +166,8 @@ function App() {
       {route === 'negotiation-detail' && negotiationId && (
         <NegotiationDetailPage id={negotiationId} />
       )}
+      {route === 'profile' && <ProfilePage />}
+      {route === 'dev-primitives' && <DevPrimitivesPage />}
       <PaywallModal />
     </>
   );

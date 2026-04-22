@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { AppShell } from '../components/layout/AppShell';
+import { WorkspaceShell } from '../components/workspace/WorkspaceShell';
 import { api, type InterviewPrep } from '../lib/api';
 
 export default function InterviewPrepListPage() {
@@ -24,7 +24,7 @@ export default function InterviewPrepListPage() {
   }, []);
 
   return (
-    <AppShell>
+    <WorkspaceShell>
       <h1 className="text-xl font-semibold">Interview prep</h1>
       <p className="mt-1 text-sm text-[#787774]">Saved prep packs from chat or the API.</p>
       {error && <p className="mt-2 text-sm text-[#e03e3e]">{error}</p>}
@@ -44,6 +44,6 @@ export default function InterviewPrepListPage() {
       {rows.length === 0 && !error && (
         <p className="mt-4 text-sm text-[#787774]">No interview prep yet. Ask the assistant in chat.</p>
       )}
-    </AppShell>
+    </WorkspaceShell>
   );
 }
