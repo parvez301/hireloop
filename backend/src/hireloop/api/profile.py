@@ -4,13 +4,14 @@ from fastapi import APIRouter, Depends, UploadFile
 
 from hireloop.api.deps import CurrentDbUser, DbSession
 from hireloop.schemas.common import Envelope
-from hireloop.schemas.profile import ProfileResponse, ProfileUpdate
+from hireloop.schemas.profile import ProfileResponse, ProfileUpdate, ResumeTextRequest
 from hireloop.services.profile import (
     delete_profile_cascade,
     export_user_data,
     get_or_create_profile,
     update_profile,
     upload_resume,
+    upload_resume_text,
 )
 from hireloop.services.storage import StorageService, get_storage_service
 
@@ -51,6 +52,18 @@ async def upload_resume_endpoint(
     contents = await file.read()
     profile = await get_or_create_profile(db, user)
     profile = await upload_resume(db, storage, profile, file.filename or "resume.pdf", contents)
+    await db.refresh(profile)
+    return Envelope(data=ProfileResponse.model_validate(profile))
+
+
+@router.post("/resume-text", response_model=Envelope[ProfileResponse])
+async def upload_resume_text_endpoint(
+    body: ResumeTextRequest,
+    user: CurrentDbUser,
+    db: DbSession,
+) -> Envelope[ProfileResponse]:
+    profile = await get_or_create_profile(db, user)
+    profile = await upload_resume_text(db, profile, body.text)
     await db.refresh(profile)
     return Envelope(data=ProfileResponse.model_validate(profile))
 

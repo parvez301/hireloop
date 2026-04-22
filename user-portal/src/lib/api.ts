@@ -277,6 +277,82 @@ export type FeedbackResource =
   | 'interview_prep'
   | 'negotiation';
 
+export interface Profile {
+  user_id: string;
+  master_resume_md: string | null;
+  master_resume_s3: string | null;
+  parsed_resume_json: Record<string, unknown> | null;
+  target_roles: string[] | null;
+  target_locations: string[] | null;
+  min_salary: number | null;
+  preferred_industries: string[] | null;
+  linkedin_url: string | null;
+  github_url: string | null;
+  portfolio_url: string | null;
+  onboarding_state: 'resume_upload' | 'preferences' | 'done';
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ParsedJob {
+  content_hash: string;
+  url: string | null;
+  title: string;
+  company: string | null;
+  location: string | null;
+  salary_min: number | null;
+  salary_max: number | null;
+  employment_type: string | null;
+  seniority: string | null;
+  description_md: string;
+  requirements_json: Record<string, unknown> | null;
+}
+
+export type EvaluationGrade = 'A' | 'A-' | 'B+' | 'B' | 'C';
+
+export interface EvaluationDetail {
+  id: string;
+  user_id: string;
+  job_id: string;
+  overall_grade: string;
+  dimension_scores: Record<
+    string,
+    { score: number; grade: string; reasoning: string; signals?: string[] }
+  >;
+  reasoning: string;
+  red_flags: string[] | null;
+  personalization: string | null;
+  match_score: number;
+  recommendation: 'strong_match' | 'worth_exploring' | 'skip';
+  model_used: string;
+  tokens_used: number | null;
+  cached: boolean;
+  created_at: string;
+}
+
+export interface FirstEvaluationResponse {
+  evaluation: {
+    id: string;
+    overall_grade: EvaluationGrade | string;
+    match_score: number | null;
+    dimension_scores: Record<string, unknown>;
+    reasoning: string | null;
+    recommendation: string | null;
+    red_flags: unknown;
+    personalization: unknown;
+    cached: boolean;
+    job_id: string | null;
+  };
+  job: {
+    content_hash: string;
+    url: string | null;
+    title: string;
+    company: string | null;
+    location: string | null;
+    description_md: string;
+  };
+}
+
 // ----- API methods -----
 
 export const api = {
@@ -424,6 +500,56 @@ export const api = {
     update: (id: string, body: Partial<StarStory>) =>
       request<{ data: StarStory }>('PUT', `/api/v1/star-stories/${id}`, body),
     delete: (id: string) => request<void>('DELETE', `/api/v1/star-stories/${id}`),
+  },
+
+  profile: {
+    get: () => request<{ data: Profile }>('GET', '/api/v1/profile'),
+    uploadResume: async (form: FormData) => {
+      const response = await apiFetch('/api/v1/profile/resume', {
+        method: 'POST',
+        body: form,
+      });
+      if (!response.ok) {
+        let code = 'UNKNOWN';
+        let message = `HTTP ${response.status}`;
+        try {
+          const errBody = await response.json();
+          if (errBody.error) {
+            code = errBody.error.code ?? code;
+            message = errBody.error.message ?? message;
+          }
+        } catch {
+          // ignore
+        }
+        throw new ApiError(response.status, code, message);
+      }
+      return (await response.json()) as { data: Profile };
+    },
+    uploadResumeText: (text: string) =>
+      request<{ data: Profile }>('POST', '/api/v1/profile/resume-text', { text }),
+  },
+
+  jobs: {
+    parse: (body: { url?: string; description_md?: string }) =>
+      request<{ data: ParsedJob }>('POST', '/api/v1/jobs/parse', body),
+    parseText: (body: { text: string; source_url?: string }) =>
+      request<{ data: ParsedJob }>('POST', '/api/v1/jobs/parse-text', body),
+  },
+
+  onboarding: {
+    firstEvaluation: (body: {
+      job_input: { type: 'url' | 'text'; value: string };
+    }) =>
+      request<{ data: FirstEvaluationResponse }>(
+        'POST',
+        '/api/v1/onboarding/first-evaluation',
+        body,
+      ),
+  },
+
+  evaluations: {
+    get: (id: string) =>
+      request<{ data: EvaluationDetail }>('GET', `/api/v1/evaluations/${id}`),
   },
 
   feedback: {

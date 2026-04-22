@@ -34,9 +34,14 @@ async def test_get_profile_creates_empty_profile_on_first_access(client: AsyncCl
 
 @pytest.mark.asyncio
 async def test_put_profile_updates_preferences(client: AsyncClient) -> None:
+    fresh_claims = {
+        **FAKE_CLAIMS,
+        "sub": "cognito-sub-put-prefs-test",
+        "email": "put-prefs-test@example.com",
+    }
     with patch(
         "hireloop.integrations.cognito.CognitoJwtVerifier.verify",
-        new=AsyncMock(return_value=FAKE_CLAIMS),
+        new=AsyncMock(return_value=fresh_claims),
     ):
         await client.get("/api/v1/profile", headers={"Authorization": "Bearer fake"})
 
@@ -56,7 +61,9 @@ async def test_put_profile_updates_preferences(client: AsyncClient) -> None:
     assert body["target_roles"] == ["Senior Backend Engineer"]
     assert body["target_locations"] == ["Remote", "Dubai"]
     assert body["min_salary"] == 120000
-    assert body["onboarding_state"] in ("preferences", "done")
+    # Post-2026-04-22: preferences collection no longer gates onboarding_state.
+    # A profile with no resume stays in resume_upload regardless of prefs.
+    assert body["onboarding_state"] == "resume_upload"
 
 
 @pytest.mark.asyncio
