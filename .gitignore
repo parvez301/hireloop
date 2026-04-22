@@ -19,6 +19,7 @@ node_modules/
 dist/
 *.log
 .turbo/
+*.tsbuildinfo
 
 # CDK
 cdk.out/
@@ -37,6 +38,7 @@ cdk.context.json
 .env
 .env.local
 .env.*.local
+.env.bak*
 !.env.example
 
 # Superpowers
