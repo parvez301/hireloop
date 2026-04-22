@@ -20,6 +20,8 @@ from uuid import UUID, uuid4
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from hireloop.db import get_session_factory
+
 from hireloop.api.errors import AppError
 from hireloop.config import Settings, get_settings
 from hireloop.models.auth import (
@@ -260,10 +262,17 @@ async def verify_email(
         raise AppError(
             429, "TOO_MANY_ATTEMPTS", "Too many attempts — request a new code"
         )
-    row.attempts += 1
     if hash_secret(code) != row.code_hash:
-        await db.flush()
+        # Persist the attempt bump in a standalone transaction so the outer
+        # request-scoped rollback (triggered by AppError below) can't undo it.
+        factory = get_session_factory()
+        async with factory() as bump:
+            locked = await bump.get(EmailVerificationCode, row.id)
+            if locked is not None:
+                locked.attempts += 1
+                await bump.commit()
         raise invalid
+    row.attempts += 1
 
     row.consumed_at = _now()
     user.email_verified_at = _now()

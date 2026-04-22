@@ -8,7 +8,7 @@ the main user model more than strictly necessary.
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String
+from sqlalchemy import DateTime, ForeignKey, Integer, String, func
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -30,7 +30,12 @@ class EmailVerificationCode(Base, UUIDPKMixin):
     consumed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        default=func.now(),
+    )
 
 
 class PasswordResetToken(Base, UUIDPKMixin):
@@ -47,7 +52,12 @@ class PasswordResetToken(Base, UUIDPKMixin):
     consumed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        default=func.now(),
+    )
 
 
 class AuthRefreshToken(Base, UUIDPKMixin):
@@ -66,4 +76,9 @@ class AuthRefreshToken(Base, UUIDPKMixin):
     )
     user_agent: Mapped[str | None] = mapped_column(String(512), nullable=True)
     ip: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        default=func.now(),
+    )
