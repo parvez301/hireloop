@@ -1,11 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import {
-  FileText,
-  IdCard,
-  Link2,
-  ShieldCheck,
-  Target,
-} from 'lucide-react';
 
 import { SoftCard } from '../components/ui/SoftCard';
 import { WorkspaceShell } from '../components/workspace/WorkspaceShell';
@@ -15,26 +8,73 @@ import { ResumePanel } from '../components/profile/ResumePanel';
 import { SocialPanel } from '../components/profile/SocialPanel';
 import { TargetsPanel } from '../components/profile/TargetsPanel';
 import { api, type Profile } from '../lib/api';
+import { getUserEmail } from '../lib/auth';
 
-type TabId = 'basics' | 'resume' | 'targets' | 'privacy' | 'social';
+type TabId = 'basics' | 'resume' | 'targets' | 'social' | 'privacy';
 
-const TABS: {
-  id: TabId;
-  label: string;
-  sub: string;
-  icon: typeof IdCard;
-}[] = [
-  { id: 'basics', label: 'Basics', sub: 'Identity + contact', icon: IdCard },
-  { id: 'resume', label: 'Resume', sub: 'Master + tailored copies', icon: FileText },
-  { id: 'targets', label: 'Targets', sub: 'What we grade against', icon: Target },
-  { id: 'privacy', label: 'Privacy', sub: 'Data + visibility', icon: ShieldCheck },
-  { id: 'social', label: 'Social', sub: 'External links', icon: Link2 },
+const TABS: { id: TabId; label: string; badge?: string }[] = [
+  { id: 'basics', label: 'Basics' },
+  { id: 'resume', label: 'Resume' },
+  { id: 'targets', label: 'Target roles' },
+  { id: 'social', label: 'Social profiles', badge: 'NEW' },
+  { id: 'privacy', label: 'Data & privacy' },
 ];
 
 function tabFromPath(pathname: string): TabId {
   const match = /^\/profile\/([a-z]+)/.exec(pathname);
   const found = match?.[1];
-  return (TABS.find((tab) => tab.id === found)?.id) ?? 'basics';
+  return TABS.find((tab) => tab.id === found)?.id ?? 'basics';
+}
+
+type Completion = {
+  pct: number;
+  items: { label: string; done: boolean }[];
+};
+
+function computeCompletion(profile: Profile): Completion {
+  const items = [
+    { label: 'Master resume uploaded', done: Boolean(profile.master_resume_md) },
+    {
+      label: 'Target roles set',
+      done: (profile.target_roles?.length ?? 0) > 0,
+    },
+    {
+      label: 'Target locations set',
+      done: (profile.target_locations?.length ?? 0) > 0,
+    },
+    { label: 'LinkedIn connected', done: Boolean(profile.linkedin_url) },
+    { label: 'GitHub profile added', done: Boolean(profile.github_url) },
+    { label: 'Portfolio URL added', done: Boolean(profile.portfolio_url) },
+  ];
+  const done = items.filter((item) => item.done).length;
+  const pct = Math.round((done / items.length) * 100);
+  return { pct, items };
+}
+
+function initialsOf(email: string | null): string {
+  if (!email) return '?';
+  const local = email.split('@')[0] ?? '';
+  const parts = local.split(/[._-]+/).filter(Boolean);
+  if (parts.length === 0) return local.slice(0, 2).toUpperCase();
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+}
+
+function displayNameFrom(email: string | null): string {
+  if (!email) return 'Account';
+  const local = email.split('@')[0] ?? '';
+  return local.replace(/[._-]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function memberSince(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'short',
+    });
+  } catch {
+    return iso;
+  }
 }
 
 type Props = { tab?: TabId };
@@ -85,97 +125,172 @@ export default function ProfilePage({ tab: override }: Props = {}) {
     }
   }
 
-  const activeTab = useMemo(() => TABS.find((item) => item.id === tab) ?? TABS[0], [tab]);
+  const email = getUserEmail();
+  const initials = useMemo(() => initialsOf(email), [email]);
+  const displayName = useMemo(() => displayNameFrom(email), [email]);
+  const completion = useMemo(
+    () => (profile ? computeCompletion(profile) : null),
+    [profile],
+  );
 
   return (
-    <WorkspaceShell>
-      <div className="mx-auto max-w-6xl">
-        <header className="mb-6">
-          <h1 className="text-[28px] font-semibold tracking-tight">Profile</h1>
-          <p className="mt-1 text-[13px] text-ink-3">
-            Everything we use to grade jobs and write your pitch. Edit anytime;
-            nothing is shown to employers.
-          </p>
-        </header>
+    <WorkspaceShell crumb="Profile">
+      <div className="mx-auto max-w-[1100px]">
+        <div className="flex flex-wrap items-start justify-between gap-6">
+          <div className="flex items-start gap-4">
+            <div
+              aria-hidden
+              className="flex h-16 w-16 flex-none items-center justify-center rounded-2xl text-[22px] font-semibold text-white"
+              style={{
+                backgroundImage:
+                  'linear-gradient(135deg, #14b8a6 0%, #2563eb 45%, #7c3aed 100%)',
+              }}
+            >
+              {initials}
+            </div>
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.18em] text-ink-3">
+                Account
+              </p>
+              <h1 className="mt-1 text-[28px] font-semibold tracking-[-0.02em] text-ink">
+                {displayName}
+              </h1>
+              <p className="mt-1 text-[13px] text-ink-3">
+                {email ?? '—'}
+                {profile && (
+                  <>
+                    {' · '}
+                    <span>Member since {memberSince(profile.created_at)}</span>
+                  </>
+                )}
+              </p>
+              {completion && (
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  <span className="inline-flex items-center gap-1 rounded-full border border-line bg-white px-2 py-0.5 text-[11px] text-ink-2">
+                    <span className="h-1.5 w-1.5 rounded-full bg-teal" /> Profile{' '}
+                    {completion.pct}% complete
+                  </span>
+                  {profile?.onboarding_state === 'done' && (
+                    <span className="inline-flex items-center rounded-full border border-line bg-white px-2 py-0.5 text-[11px] text-ink-2">
+                      Onboarding done
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
 
-        <div className="flex gap-8">
-          <nav className="w-[220px] flex-none">
-            <ul className="space-y-1">
-              {TABS.map((item) => {
-                const Icon = item.icon;
-                const isActive = item.id === tab;
-                return (
-                  <li key={item.id}>
-                    <button
-                      type="button"
-                      onClick={() => selectTab(item.id)}
-                      className={
-                        'flex w-full items-start gap-2 rounded-lg px-3 py-2 text-left transition-colors duration-150 motion-reduce:transition-none ' +
-                        (isActive
-                          ? 'bg-ink text-white'
-                          : 'text-ink-2 hover:bg-card')
-                      }
-                    >
-                      <Icon
-                        size={16}
-                        strokeWidth={1.6}
-                        className={isActive ? 'text-white' : 'text-ink-3'}
-                      />
-                      <span>
-                        <span className="block text-[13px] font-medium">{item.label}</span>
-                        <span
-                          className={
-                            'block text-[11px] ' + (isActive ? 'text-white/70' : 'text-ink-3')
-                          }
-                        >
-                          {item.sub}
-                        </span>
+          {completion && (
+            <div className="hidden md:block">
+              <SoftCard className="w-[260px] p-3.5">
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-ink-3">
+                    Completeness
+                  </p>
+                  <span className="text-[12px] font-semibold text-ink">
+                    {completion.pct}%
+                  </span>
+                </div>
+                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-line">
+                  <div
+                    className="h-full rounded-full"
+                    style={{
+                      width: `${completion.pct}%`,
+                      backgroundImage:
+                        'linear-gradient(90deg, #14b8a6, #2563eb, #7c3aed)',
+                    }}
+                  />
+                </div>
+                <ul className="mt-3 space-y-1 text-[12px] text-ink-3">
+                  {completion.items.map((item) => (
+                    <li key={item.label} className="flex items-center gap-1.5">
+                      <span className={item.done ? 'text-teal' : 'text-amber'}>
+                        {item.done ? '✓' : '!'}
                       </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </nav>
-
-          <section className="min-w-0 flex-1 space-y-5">
-            {loading ? (
-              <p className="text-ink-3">Loading your profile…</p>
-            ) : error ? (
-              <SoftCard>
-                <p role="alert" className="text-[13px] text-red-800">
-                  {error}
-                </p>
+                      {item.label}
+                    </li>
+                  ))}
+                </ul>
               </SoftCard>
-            ) : profile ? (
-              <div key={activeTab.id} className="animate-fade-up motion-reduce:animate-none">
-                {activeTab.id === 'basics' && (
-                  <BasicsPanel
-                    profile={profile}
-                    saving={saving}
-                    onSave={(patch) => void saveProfile(patch)}
-                  />
-                )}
-                {activeTab.id === 'resume' && <ResumePanel profile={profile} />}
-                {activeTab.id === 'targets' && (
-                  <TargetsPanel
-                    profile={profile}
-                    saving={saving}
-                    onSave={(patch) => void saveProfile(patch)}
-                  />
-                )}
-                {activeTab.id === 'privacy' && <PrivacyPanel />}
-                {activeTab.id === 'social' && (
-                  <SocialPanel
-                    profile={profile}
-                    saving={saving}
-                    onSave={(patch) => void saveProfile(patch)}
-                  />
-                )}
-              </div>
-            ) : null}
-          </section>
+            </div>
+          )}
         </div>
+
+        <div className="mt-8 border-b border-line">
+          <div className="flex items-center gap-1 overflow-x-auto" role="tablist">
+            {TABS.map((item) => {
+              const isActive = item.id === tab;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  onClick={() => selectTab(item.id)}
+                  className={
+                    '-mb-px whitespace-nowrap border-b-2 px-3.5 py-2.5 text-[13px] font-medium transition-colors duration-150 motion-reduce:transition-none ' +
+                    (isActive
+                      ? 'border-cobalt text-ink'
+                      : 'border-transparent text-ink-3 hover:text-ink')
+                  }
+                >
+                  {item.label}
+                  {item.badge && (
+                    <span
+                      className="ml-1.5 rounded-[4px] px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wider text-cobalt"
+                      style={{
+                        backgroundColor: 'rgba(37,99,235,0.12)',
+                      }}
+                    >
+                      {item.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <section className="mt-6 min-w-0">
+          {loading ? (
+            <p className="text-ink-3">Loading your profile…</p>
+          ) : error ? (
+            <SoftCard className="p-5">
+              <p role="alert" className="text-[13px] text-red-800">
+                {error}
+              </p>
+            </SoftCard>
+          ) : profile ? (
+            <div
+              key={tab}
+              className="animate-fade-up motion-reduce:animate-none"
+            >
+              {tab === 'basics' && (
+                <BasicsPanel
+                  profile={profile}
+                  saving={saving}
+                  onSave={(patch) => void saveProfile(patch)}
+                />
+              )}
+              {tab === 'resume' && <ResumePanel profile={profile} />}
+              {tab === 'targets' && (
+                <TargetsPanel
+                  profile={profile}
+                  saving={saving}
+                  onSave={(patch) => void saveProfile(patch)}
+                />
+              )}
+              {tab === 'social' && (
+                <SocialPanel
+                  profile={profile}
+                  saving={saving}
+                  onSave={(patch) => void saveProfile(patch)}
+                />
+              )}
+              {tab === 'privacy' && <PrivacyPanel />}
+            </div>
+          ) : null}
+        </section>
       </div>
     </WorkspaceShell>
   );
