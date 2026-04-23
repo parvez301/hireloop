@@ -42,7 +42,7 @@ export default function ScanDetailPage() {
   if (loading && !data) {
     return (
       <WorkspaceShell>
-        <p className="text-sm text-[#787774]">Loading scan…</p>
+        <p className="text-sm text-ink-3">Loading scan…</p>
       </WorkspaceShell>
     );
   }
@@ -50,7 +50,7 @@ export default function ScanDetailPage() {
   if (error && !data) {
     return (
       <WorkspaceShell>
-        <p className="text-sm text-[#e03e3e]">Error: {error.message}</p>
+        <p className="text-sm text-red-600">Error: {error.message}</p>
       </WorkspaceShell>
     );
   }
@@ -63,11 +63,11 @@ export default function ScanDetailPage() {
   return (
     <WorkspaceShell>
       <div className="mx-auto max-w-3xl">
-        <a href="/scans" className="text-sm text-[#2383e2]">
+        <a href="/scans" className="text-sm text-cobalt">
           ← Back to scans
         </a>
         <h1 className="mt-2 text-2xl font-semibold">Scan run</h1>
-        <p className="mt-1 text-sm text-[#787774]">
+        <p className="mt-1 text-sm text-ink-3">
           Status: {scan_run.status}
           {scan_run.status === 'completed' &&
             ` · ${scan_run.jobs_found} jobs (${scan_run.jobs_new} new)`}
@@ -75,7 +75,7 @@ export default function ScanDetailPage() {
         </p>
 
         {isRunning && (
-          <div className="mt-4 rounded border border-[#e3e2e0] bg-[#fbfbfa] p-4 text-sm">
+          <div className="mt-4 rounded border border-line-2 bg-sidebar p-4 text-sm">
             Scan in progress — this page refreshes automatically.
           </div>
         )}
@@ -88,22 +88,22 @@ export default function ScanDetailPage() {
                 type="button"
                 onClick={evaluateAll}
                 disabled={batchPending || results.length === 0}
-                className="rounded bg-[#2383e2] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                className="rounded bg-cobalt px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
               >
                 {batchPending ? 'Starting…' : 'Evaluate all'}
               </button>
             </div>
-            {batchError && <p className="mt-2 text-sm text-[#e03e3e]">{batchError}</p>}
-            <ul className="mt-3 divide-y divide-[#e3e2e0]">
+            {batchError && <p className="mt-2 text-sm text-red-600">{batchError}</p>}
+            <ul className="mt-3 divide-y divide-line-2">
               {results.length === 0 && (
-                <li className="py-4 text-sm text-[#787774]">No results in this scan run.</li>
+                <li className="py-4 text-sm text-ink-3">No results in this scan run.</li>
               )}
               {results.map((r) => (
                 <li key={r.id} className="flex items-center justify-between py-3">
                   <span className="text-sm">
                     Job <span className="font-mono text-xs">{r.job_id.slice(0, 8)}</span>
                   </span>
-                  <span className="text-xs text-[#787774]">
+                  <span className="text-xs text-ink-3">
                     Relevance:{' '}
                     <strong>
                       {r.relevance_score === null ? 'n/a' : r.relevance_score.toFixed(2)}
@@ -117,7 +117,7 @@ export default function ScanDetailPage() {
         )}
 
         {scan_run.status === 'failed' && (
-          <div className="mt-6 rounded border border-[#e03e3e] bg-[#fdf1f1] p-4 text-sm text-[#e03e3e]">
+          <div className="mt-6 rounded border border-red-300 bg-red-50 p-4 text-sm text-red-600">
             Scan failed: {scan_run.error ?? 'Unknown error'}
           </div>
         )}

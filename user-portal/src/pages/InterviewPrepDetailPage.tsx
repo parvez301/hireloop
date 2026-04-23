@@ -27,14 +27,14 @@ export default function InterviewPrepDetailPage({ id }: { id: string }) {
   if (error) {
     return (
       <WorkspaceShell>
-        <p className="text-[#e03e3e]">{error}</p>
+        <p className="text-red-600">{error}</p>
       </WorkspaceShell>
     );
   }
   if (!prep) {
     return (
       <WorkspaceShell>
-        <p className="text-[#787774]">Loading…</p>
+        <p className="text-ink-3">Loading…</p>
       </WorkspaceShell>
     );
   }
@@ -47,22 +47,22 @@ export default function InterviewPrepDetailPage({ id }: { id: string }) {
 
   return (
     <WorkspaceShell>
-      <a href="/interview-prep" className="text-sm text-[#2383e2] hover:underline">
+      <a href="/interview-prep" className="text-sm text-cobalt hover:underline">
         ← All interview prep
       </a>
       <h1 className="mt-2 text-xl font-semibold">
         {prep.custom_role || 'Job-specific prep'}
       </h1>
-      <p className="text-xs text-[#787774]">{new Date(prep.created_at).toLocaleString()}</p>
+      <p className="text-xs text-ink-3">{new Date(prep.created_at).toLocaleString()}</p>
 
       <section className="mt-6">
-        <h2 className="text-sm font-semibold text-[#787774]">Likely questions</h2>
+        <h2 className="text-sm font-semibold text-ink-3">Likely questions</h2>
         <ol className="mt-2 list-decimal space-y-3 pl-5 text-sm">
           {qs.map((q, i) => (
             <li key={i}>
               <p>{q.question}</p>
               {q.framework && (
-                <p className="text-xs text-[#787774]">Framework: {q.framework}</p>
+                <p className="text-xs text-ink-3">Framework: {q.framework}</p>
               )}
             </li>
           ))}
@@ -71,14 +71,14 @@ export default function InterviewPrepDetailPage({ id }: { id: string }) {
 
       {prep.red_flag_questions && prep.red_flag_questions.length > 0 && (
         <section className="mt-8">
-          <h2 className="text-sm font-semibold text-[#787774]">Ask them</h2>
+          <h2 className="text-sm font-semibold text-ink-3">Ask them</h2>
           <ul className="mt-2 list-disc space-y-2 pl-5 text-sm">
             {(prep.red_flag_questions as Array<{ question?: string; what_to_listen_for?: string }>).map(
               (r, i) => (
                 <li key={i}>
                   {r.question}
                   {r.what_to_listen_for && (
-                    <span className="text-[#787774]"> — {r.what_to_listen_for}</span>
+                    <span className="text-ink-3"> — {r.what_to_listen_for}</span>
                   )}
                 </li>
               ),

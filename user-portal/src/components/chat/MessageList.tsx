@@ -20,7 +20,7 @@ export function MessageList({ messages }: MessageListProps) {
           data-role={message.role}
           className={
             message.role === 'user'
-              ? 'self-end max-w-[85%] rounded-lg bg-[#2383e2] px-4 py-2 text-white'
+              ? 'self-end max-w-[85%] rounded-lg bg-cobalt px-4 py-2 text-white'
               : 'self-start max-w-[85%] space-y-3'
           }
         >

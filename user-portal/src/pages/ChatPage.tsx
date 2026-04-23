@@ -107,7 +107,7 @@ export default function ChatPage() {
           </div>
         )}
         <MessageList messages={messages} />
-        {error && <p className="text-sm text-[#e03e3e]">Error: {error}</p>}
+        {error && <p className="text-sm text-red-600">Error: {error}</p>}
         <InputBar disabled={pending || !conversation || trialExpired} onSend={send} />
       </div>
     </WorkspaceShell>

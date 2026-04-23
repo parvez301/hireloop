@@ -45,38 +45,38 @@ export function PaywallModal() {
         <h2 id="paywall-title" className="text-xl font-semibold">
           Your trial has ended
         </h2>
-        <p className="mt-2 text-sm text-[#787774]">
+        <p className="mt-2 text-sm text-ink-3">
           Subscribe to HireLoop Pro to keep evaluating jobs, tailoring your CV, and chatting
           with your agent.
         </p>
         <p className="mt-4 text-sm">
           <strong className="text-lg">$4.99</strong>
-          <span className="text-[#787774]"> / month · cancel anytime</span>
+          <span className="text-ink-3"> / month · cancel anytime</span>
         </p>
 
-        {error && <p className="mt-3 text-sm text-[#e03e3e]">{error}</p>}
+        {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
 
         <div className="mt-6 flex gap-2">
           <button
             type="button"
             onClick={subscribe}
             disabled={pending}
-            className="flex-1 rounded bg-[#2383e2] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+            className="flex-1 rounded bg-cobalt px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
           >
             {pending ? 'Redirecting…' : 'Subscribe'}
           </button>
           <button
             type="button"
             onClick={() => setOpen(false)}
-            className="rounded border border-[#e3e2e0] px-4 py-2 text-sm text-[#37352f]"
+            className="rounded border border-line-2 px-4 py-2 text-sm text-[#37352f]"
           >
             Not now
           </button>
         </div>
 
-        <p className="mt-4 text-center text-xs text-[#787774]">
+        <p className="mt-4 text-center text-xs text-ink-3">
           Or visit{' '}
-          <a href="/settings/billing" className="text-[#2383e2]">
+          <a href="/settings/billing" className="text-cobalt">
             Billing
           </a>{' '}
           to see your plan details.

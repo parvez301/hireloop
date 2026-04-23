@@ -36,15 +36,15 @@ export function FeedbackWidget({ resource, resourceId, className = '' }: Feedbac
   }
 
   return (
-    <div className={`rounded border border-[#e3e2e0] bg-[#fbfbfa] p-3 ${className}`}>
-      <p className="text-xs font-medium text-[#787774]">Rate this output</p>
+    <div className={`rounded border border-line-2 bg-sidebar p-3 ${className}`}>
+      <p className="text-xs font-medium text-ink-3">Rate this output</p>
       <div className="mt-2 flex flex-wrap items-center gap-2">
-        <label className="text-xs text-[#787774]" htmlFor={`rt-${resourceId}`}>
+        <label className="text-xs text-ink-3" htmlFor={`rt-${resourceId}`}>
           Rating (1–5)
         </label>
         <select
           id={`rt-${resourceId}`}
-          className="rounded border border-[#e3e2e0] bg-white px-2 py-1 text-sm"
+          className="rounded border border-line-2 bg-white px-2 py-1 text-sm"
           value={rating}
           onChange={(e) => setRating(Number(e.target.value))}
         >
@@ -58,19 +58,19 @@ export function FeedbackWidget({ resource, resourceId, className = '' }: Feedbac
           type="button"
           onClick={() => void submit()}
           disabled={status === 'sending'}
-          className="rounded bg-[#2383e2] px-3 py-1 text-xs text-white disabled:opacity-50"
+          className="rounded bg-cobalt px-3 py-1 text-xs text-white disabled:opacity-50"
         >
           {status === 'sending' ? 'Saving…' : 'Submit'}
         </button>
       </div>
       <textarea
-        className="mt-2 w-full rounded border border-[#e3e2e0] bg-white px-2 py-1 text-xs"
+        className="mt-2 w-full rounded border border-line-2 bg-white px-2 py-1 text-xs"
         rows={2}
         placeholder="Optional corrections or context"
         value={notes}
         onChange={(e) => setNotes(e.target.value)}
       />
-      {err && <p className="mt-1 text-xs text-[#e03e3e]">{err}</p>}
+      {err && <p className="mt-1 text-xs text-red-600">{err}</p>}
     </div>
   );
 }

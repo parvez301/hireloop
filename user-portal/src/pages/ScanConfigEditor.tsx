@@ -89,26 +89,26 @@ export default function ScanConfigEditor({ existing, onSave, onCancel }: Props) 
           value={name}
           onChange={(e) => setName(e.target.value)}
           required
-          className="mt-1 w-full rounded border border-[#e3e2e0] px-3 py-2 text-sm"
+          className="mt-1 w-full rounded border border-line-2 px-3 py-2 text-sm"
         />
 
         <h3 className="mt-6 text-sm font-medium">Companies ({companies.length})</h3>
-        <ul className="mt-2 max-h-48 overflow-y-auto rounded border border-[#e3e2e0] bg-[#fbfbfa] p-2 text-sm">
+        <ul className="mt-2 max-h-48 overflow-y-auto rounded border border-line-2 bg-sidebar p-2 text-sm">
           {companies.length === 0 && (
-            <li className="text-[#787774]">No companies yet — add one below.</li>
+            <li className="text-ink-3">No companies yet — add one below.</li>
           )}
           {companies.map((c, i) => (
             <li key={i} className="flex items-center justify-between py-1">
               <span>
                 <strong>{c.name}</strong>{' '}
-                <span className="text-[#787774]">
+                <span className="text-ink-3">
                   ({c.platform}:{c.board_slug})
                 </span>
               </span>
               <button
                 type="button"
                 onClick={() => removeCompany(i)}
-                className="text-xs text-[#e03e3e]"
+                className="text-xs text-red-600"
               >
                 Remove
               </button>
@@ -121,7 +121,7 @@ export default function ScanConfigEditor({ existing, onSave, onCancel }: Props) 
             placeholder="Name"
             value={newCompany.name}
             onChange={(e) => setNewCompany({ ...newCompany, name: e.target.value })}
-            className="rounded border border-[#e3e2e0] px-2 py-1 text-sm"
+            className="rounded border border-line-2 px-2 py-1 text-sm"
           />
           <select
             value={newCompany.platform}
@@ -131,7 +131,7 @@ export default function ScanConfigEditor({ existing, onSave, onCancel }: Props) 
                 platform: e.target.value as CompanyRef['platform'],
               })
             }
-            className="rounded border border-[#e3e2e0] px-2 py-1 text-sm"
+            className="rounded border border-line-2 px-2 py-1 text-sm"
           >
             {PLATFORMS.map((p) => (
               <option key={p} value={p}>
@@ -145,13 +145,13 @@ export default function ScanConfigEditor({ existing, onSave, onCancel }: Props) 
             onChange={(e) =>
               setNewCompany({ ...newCompany, board_slug: e.target.value })
             }
-            className="rounded border border-[#e3e2e0] px-2 py-1 text-sm"
+            className="rounded border border-line-2 px-2 py-1 text-sm"
           />
         </div>
         <button
           type="button"
           onClick={addCompany}
-          className="mt-2 rounded border border-[#e3e2e0] px-3 py-1 text-xs"
+          className="mt-2 rounded border border-line-2 px-3 py-1 text-xs"
         >
           Add company
         </button>
@@ -162,7 +162,7 @@ export default function ScanConfigEditor({ existing, onSave, onCancel }: Props) 
         <input
           value={keywordInput}
           onChange={(e) => setKeywordInput(e.target.value)}
-          className="mt-1 w-full rounded border border-[#e3e2e0] px-3 py-2 text-sm"
+          className="mt-1 w-full rounded border border-line-2 px-3 py-2 text-sm"
         />
 
         <label className="mt-4 block text-sm font-medium">
@@ -171,23 +171,23 @@ export default function ScanConfigEditor({ existing, onSave, onCancel }: Props) 
         <input
           value={excludeInput}
           onChange={(e) => setExcludeInput(e.target.value)}
-          className="mt-1 w-full rounded border border-[#e3e2e0] px-3 py-2 text-sm"
+          className="mt-1 w-full rounded border border-line-2 px-3 py-2 text-sm"
         />
 
-        {error && <p className="mt-4 text-sm text-[#e03e3e]">{error}</p>}
+        {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
 
         <div className="mt-6 flex justify-end gap-2">
           <button
             type="button"
             onClick={onCancel}
-            className="rounded border border-[#e3e2e0] px-4 py-2 text-sm"
+            className="rounded border border-line-2 px-4 py-2 text-sm"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={pending || !name || companies.length === 0}
-            className="rounded bg-[#2383e2] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+            className="rounded bg-cobalt px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
           >
             {pending ? 'Saving…' : 'Save'}
           </button>

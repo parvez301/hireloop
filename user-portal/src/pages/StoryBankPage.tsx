@@ -53,58 +53,58 @@ export default function StoryBankPage() {
   return (
     <WorkspaceShell>
       <h1 className="text-xl font-semibold">Story bank</h1>
-      <p className="mt-1 text-sm text-[#787774]">
+      <p className="mt-1 text-sm text-ink-3">
         STAR stories power interview prep. Add or edit your accomplishments here.
       </p>
 
-      {error && <p className="mt-2 text-sm text-[#e03e3e]">{error}</p>}
+      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
 
-      <form onSubmit={(e) => void addStory(e)} className="mt-6 space-y-2 rounded border border-[#e3e2e0] p-4">
+      <form onSubmit={(e) => void addStory(e)} className="mt-6 space-y-2 rounded border border-line-2 p-4">
         <p className="text-sm font-medium">Add story</p>
         <input
-          className="w-full rounded border border-[#e3e2e0] px-2 py-1 text-sm"
+          className="w-full rounded border border-line-2 px-2 py-1 text-sm"
           placeholder="Title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
         />
         <textarea
-          className="w-full rounded border border-[#e3e2e0] px-2 py-1 text-sm"
+          className="w-full rounded border border-line-2 px-2 py-1 text-sm"
           placeholder="Situation"
           rows={2}
           value={situation}
           onChange={(e) => setSituation(e.target.value)}
         />
         <textarea
-          className="w-full rounded border border-[#e3e2e0] px-2 py-1 text-sm"
+          className="w-full rounded border border-line-2 px-2 py-1 text-sm"
           placeholder="Task"
           rows={2}
           value={task}
           onChange={(e) => setTask(e.target.value)}
         />
         <textarea
-          className="w-full rounded border border-[#e3e2e0] px-2 py-1 text-sm"
+          className="w-full rounded border border-line-2 px-2 py-1 text-sm"
           placeholder="Action"
           rows={2}
           value={action}
           onChange={(e) => setAction(e.target.value)}
         />
         <textarea
-          className="w-full rounded border border-[#e3e2e0] px-2 py-1 text-sm"
+          className="w-full rounded border border-line-2 px-2 py-1 text-sm"
           placeholder="Result"
           rows={2}
           value={result}
           onChange={(e) => setResult(e.target.value)}
         />
-        <button type="submit" className="rounded bg-[#2383e2] px-3 py-1 text-sm text-white">
+        <button type="submit" className="rounded bg-cobalt px-3 py-1 text-sm text-white">
           Save story
         </button>
       </form>
 
       <ul className="mt-8 space-y-3">
         {rows.map((s) => (
-          <li key={s.id} className="rounded border border-[#e3e2e0] bg-[#fbfbfa] p-3 text-sm">
+          <li key={s.id} className="rounded border border-line-2 bg-sidebar p-3 text-sm">
             <p className="font-semibold">{s.title}</p>
-            <p className="text-[#787774]">
+            <p className="text-ink-3">
               {s.tags?.length ? s.tags.join(', ') : s.source}
             </p>
           </li>

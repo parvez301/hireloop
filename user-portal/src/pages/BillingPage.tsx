@@ -94,11 +94,11 @@ export default function BillingPage() {
   if (error || !sub) {
     return (
       <div className="min-h-screen bg-white p-8 text-[#37352f]">
-        <a href="/" className="text-sm text-[#2383e2]">
+        <a href="/" className="text-sm text-cobalt">
           ← Back to chat
         </a>
         <h1 className="mt-4 text-2xl font-semibold">Billing</h1>
-        <p className="mt-4 text-sm text-[#e03e3e]">Error: {error ?? 'Unknown'}</p>
+        <p className="mt-4 text-sm text-red-600">Error: {error ?? 'Unknown'}</p>
       </div>
     );
   }
@@ -113,12 +113,12 @@ export default function BillingPage() {
 
   return (
     <div className="min-h-screen bg-white text-[#37352f]">
-      <header className="flex items-center justify-between border-b border-[#e3e2e0] px-6 py-3">
+      <header className="flex items-center justify-between border-b border-line-2 px-6 py-3">
         <div className="flex items-center gap-3">
-          <a href="/" className="text-sm text-[#2383e2]">
+          <a href="/" className="text-sm text-cobalt">
             ← Back to chat
           </a>
-          <span className="text-sm text-[#787774]">·</span>
+          <span className="text-sm text-ink-3">·</span>
           <span className="text-sm font-medium">Settings · Billing</span>
         </div>
       </header>
@@ -126,11 +126,11 @@ export default function BillingPage() {
       <main className="mx-auto max-w-2xl px-6 py-10">
         <h1 className="text-2xl font-semibold">Your plan</h1>
 
-        <section className="mt-6 rounded-lg border border-[#e3e2e0] bg-[#fbfbfa] p-6">
+        <section className="mt-6 rounded-lg border border-line-2 bg-sidebar p-6">
           {onTrial && (
             <>
               <p className="text-lg font-medium">Free trial</p>
-              <p className="mt-1 text-sm text-[#787774]">
+              <p className="mt-1 text-sm text-ink-3">
                 {trialDays !== null && trialDays > 0
                   ? `${trialDays} day${trialDays === 1 ? '' : 's'} remaining`
                   : 'Trial ends today'}{' '}
@@ -140,7 +140,7 @@ export default function BillingPage() {
                 type="button"
                 onClick={handleSubscribe}
                 disabled={actionPending}
-                className="mt-4 rounded bg-[#2383e2] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                className="mt-4 rounded bg-cobalt px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
               >
                 Subscribe — $4.99/mo
               </button>
@@ -150,14 +150,14 @@ export default function BillingPage() {
           {isPro && !willCancel && (
             <>
               <p className="text-lg font-medium">Pro plan — $4.99/mo</p>
-              <p className="mt-1 text-sm text-[#787774]">
+              <p className="mt-1 text-sm text-ink-3">
                 Renews {formatDate(sub.current_period_end)}
               </p>
               <button
                 type="button"
                 onClick={handleManage}
                 disabled={actionPending}
-                className="mt-4 rounded border border-[#e3e2e0] px-4 py-2 text-sm font-medium text-[#37352f] disabled:opacity-50"
+                className="mt-4 rounded border border-line-2 px-4 py-2 text-sm font-medium text-[#37352f] disabled:opacity-50"
               >
                 Manage billing
               </button>
@@ -175,7 +175,7 @@ export default function BillingPage() {
                 type="button"
                 onClick={handleManage}
                 disabled={actionPending}
-                className="mt-4 rounded border border-[#e3e2e0] px-4 py-2 text-sm font-medium text-[#37352f] disabled:opacity-50"
+                className="mt-4 rounded border border-line-2 px-4 py-2 text-sm font-medium text-[#37352f] disabled:opacity-50"
               >
                 Manage billing
               </button>
@@ -184,8 +184,8 @@ export default function BillingPage() {
 
           {isPastDue && (
             <>
-              <p className="text-lg font-medium text-[#e03e3e]">Payment failed</p>
-              <p className="mt-1 text-sm text-[#787774]">
+              <p className="text-lg font-medium text-red-600">Payment failed</p>
+              <p className="mt-1 text-sm text-ink-3">
                 {graceDays !== null && graceDays > 0
                   ? `Update your card within ${graceDays} day${graceDays === 1 ? '' : 's'} to keep access.`
                   : 'Your access will be revoked shortly if the card is not updated.'}
@@ -194,7 +194,7 @@ export default function BillingPage() {
                 type="button"
                 onClick={handleManage}
                 disabled={actionPending}
-                className="mt-4 rounded bg-[#e03e3e] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                className="mt-4 rounded bg-red-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
               >
                 Update card
               </button>
@@ -204,14 +204,14 @@ export default function BillingPage() {
           {isCanceled && (
             <>
               <p className="text-lg font-medium">No active subscription</p>
-              <p className="mt-1 text-sm text-[#787774]">
+              <p className="mt-1 text-sm text-ink-3">
                 Your previous subscription ended. Subscribe again to restore access.
               </p>
               <button
                 type="button"
                 onClick={handleSubscribe}
                 disabled={actionPending}
-                className="mt-4 rounded bg-[#2383e2] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                className="mt-4 rounded bg-cobalt px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
               >
                 Subscribe — $4.99/mo
               </button>
@@ -219,13 +219,13 @@ export default function BillingPage() {
           )}
 
           {!onTrial && !isPro && !isPastDue && !isCanceled && (
-            <p className="text-sm text-[#787774]">
+            <p className="text-sm text-ink-3">
               Plan state: {sub.plan} ({sub.status}). Contact support if this looks wrong.
             </p>
           )}
         </section>
 
-        {error && <p className="mt-4 text-sm text-[#e03e3e]">Error: {error}</p>}
+        {error && <p className="mt-4 text-sm text-red-600">Error: {error}</p>}
       </main>
     </div>
   );

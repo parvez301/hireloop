@@ -13,10 +13,10 @@ export function NegotiationCard({ data }: { data: NegotiationCardData }) {
   const mid = data.market_research?.range_mid;
 
   return (
-    <article className="mt-3 rounded-lg border border-[#e3e2e0] bg-white p-4">
+    <article className="mt-3 rounded-lg border border-line-2 bg-white p-4">
       <header>
         <h3 className="text-base font-semibold">Negotiation playbook</h3>
-        {data.job_title && <p className="text-sm text-[#787774]">{data.job_title}</p>}
+        {data.job_title && <p className="text-sm text-ink-3">{data.job_title}</p>}
       </header>
 
       {mid != null && (
@@ -25,14 +25,14 @@ export function NegotiationCard({ data }: { data: NegotiationCardData }) {
         </p>
       )}
       {data.counter_offer?.target != null && (
-        <p className="text-sm text-[#787774]">
+        <p className="text-sm text-ink-3">
           Suggested counter target: ${data.counter_offer.target.toLocaleString()}
         </p>
       )}
 
       {id && (
         <footer className="mt-3">
-          <a href={`/negotiations/${id}`} className="text-xs text-[#2383e2] hover:underline">
+          <a href={`/negotiations/${id}`} className="text-xs text-cobalt hover:underline">
             Open full playbook
           </a>
           <FeedbackWidget resource="negotiation" resourceId={id} className="mt-3" />

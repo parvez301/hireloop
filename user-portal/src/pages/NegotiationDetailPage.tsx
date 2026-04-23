@@ -28,14 +28,14 @@ export default function NegotiationDetailPage({ id }: { id: string }) {
   if (error) {
     return (
       <WorkspaceShell>
-        <p className="text-[#e03e3e]">{error}</p>
+        <p className="text-red-600">{error}</p>
       </WorkspaceShell>
     );
   }
   if (!neg) {
     return (
       <WorkspaceShell>
-        <p className="text-[#787774]">Loading…</p>
+        <p className="text-ink-3">Loading…</p>
       </WorkspaceShell>
     );
   }
@@ -46,30 +46,30 @@ export default function NegotiationDetailPage({ id }: { id: string }) {
 
   return (
     <WorkspaceShell>
-      <a href="/negotiations" className="text-sm text-[#2383e2] hover:underline">
+      <a href="/negotiations" className="text-sm text-cobalt hover:underline">
         ← All negotiations
       </a>
       <h1 className="mt-2 text-xl font-semibold">Negotiation playbook</h1>
-      <p className="text-xs text-[#787774]">{new Date(neg.created_at).toLocaleString()}</p>
+      <p className="text-xs text-ink-3">{new Date(neg.created_at).toLocaleString()}</p>
 
-      <section className="mt-6 rounded border border-[#e3e2e0] bg-[#fbfbfa] p-4 text-sm">
-        <h2 className="font-semibold text-[#787774]">Market (indicative)</h2>
+      <section className="mt-6 rounded border border-line-2 bg-sidebar p-4 text-sm">
+        <h2 className="font-semibold text-ink-3">Market (indicative)</h2>
         <pre className="mt-2 overflow-x-auto whitespace-pre-wrap text-xs">{JSON.stringify(mr, null, 2)}</pre>
       </section>
 
-      <section className="mt-4 rounded border border-[#e3e2e0] bg-[#fbfbfa] p-4 text-sm">
-        <h2 className="font-semibold text-[#787774]">Counter-offer</h2>
+      <section className="mt-4 rounded border border-line-2 bg-sidebar p-4 text-sm">
+        <h2 className="font-semibold text-ink-3">Counter-offer</h2>
         <pre className="mt-2 overflow-x-auto whitespace-pre-wrap text-xs">{JSON.stringify(co, null, 2)}</pre>
       </section>
 
-      <section className="mt-4 rounded border border-[#e3e2e0] bg-white p-4 text-sm">
-        <h2 className="font-semibold text-[#787774]">Scripts</h2>
+      <section className="mt-4 rounded border border-line-2 bg-white p-4 text-sm">
+        <h2 className="font-semibold text-ink-3">Scripts</h2>
         <pre className="mt-2 overflow-x-auto whitespace-pre-wrap text-xs">{JSON.stringify(scripts, null, 2)}</pre>
       </section>
 
       <section className="mt-8">
         <h2 className="text-sm font-semibold">New playbook for same job</h2>
-        <p className="text-xs text-[#787774]">Submit a fresh offer to regenerate (entitled plan).</p>
+        <p className="text-xs text-ink-3">Submit a fresh offer to regenerate (entitled plan).</p>
         <OfferForm jobId={neg.job_id} onCreated={(nid) => (window.location.href = `/negotiations/${nid}`)} />
       </section>
 

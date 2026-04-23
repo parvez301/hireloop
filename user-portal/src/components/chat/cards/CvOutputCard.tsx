@@ -12,14 +12,14 @@ interface CvOutputCardData {
 
 export function CvOutputCard({ data }: { data: CvOutputCardData }) {
   return (
-    <article className="mt-3 rounded-lg border border-[#e3e2e0] bg-white p-4">
+    <article className="mt-3 rounded-lg border border-line-2 bg-white p-4">
       <header>
         <h3 className="text-base font-semibold">Tailored CV — {data.job_title}</h3>
-        {data.company && <p className="text-sm text-[#787774]">{data.company}</p>}
+        {data.company && <p className="text-sm text-ink-3">{data.company}</p>}
       </header>
 
       {data.changes_summary && (
-        <pre className="mt-3 whitespace-pre-wrap rounded bg-[#fbfbfa] px-3 py-2 text-xs text-[#37352f]">
+        <pre className="mt-3 whitespace-pre-wrap rounded bg-sidebar px-3 py-2 text-xs text-[#37352f]">
           {data.changes_summary}
         </pre>
       )}
@@ -29,7 +29,7 @@ export function CvOutputCard({ data }: { data: CvOutputCardData }) {
           {data.keywords_injected.map((k) => (
             <span
               key={k}
-              className="rounded-full bg-[#f7f6f3] px-2 py-0.5 text-xs text-[#787774]"
+              className="rounded-full bg-[#f7f6f3] px-2 py-0.5 text-xs text-ink-3"
             >
               {k}
             </span>
@@ -48,14 +48,14 @@ export function CvOutputCard({ data }: { data: CvOutputCardData }) {
           href={data.pdf_url}
           target="_blank"
           rel="noreferrer"
-          className="rounded bg-[#2383e2] px-3 py-1 text-xs text-white"
+          className="rounded bg-cobalt px-3 py-1 text-xs text-white"
         >
           Download PDF
         </a>
         <button
           type="button"
           disabled
-          className="rounded border border-[#e3e2e0] px-3 py-1 text-xs text-[#787774]"
+          className="rounded border border-line-2 px-3 py-1 text-xs text-ink-3"
           title="Available in Phase 5"
         >
           Regenerate

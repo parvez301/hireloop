@@ -15,13 +15,13 @@ interface BatchProgressCardData {
 const GRADE_COLOR: Record<string, string> = {
   A: 'bg-[#35a849] text-white',
   'A-': 'bg-[#35a849] text-white',
-  'B+': 'bg-[#2383e2] text-white',
-  B: 'bg-[#2383e2] text-white',
-  'B-': 'bg-[#2383e2] text-white',
+  'B+': 'bg-cobalt text-white',
+  B: 'bg-cobalt text-white',
+  'B-': 'bg-cobalt text-white',
   'C+': 'bg-[#cb912f] text-white',
   C: 'bg-[#cb912f] text-white',
-  D: 'bg-[#e03e3e] text-white',
-  F: 'bg-[#e03e3e] text-white',
+  D: 'bg-red-600 text-white',
+  F: 'bg-red-600 text-white',
 };
 
 export function BatchProgressCard({ data }: { data: BatchProgressCardData }) {
@@ -46,35 +46,35 @@ export function BatchProgressCard({ data }: { data: BatchProgressCardData }) {
   const l2 = run?.l2_evaluated ?? data.l2_evaluated;
 
   return (
-    <article className="mt-3 rounded-lg border border-[#e3e2e0] bg-white p-4">
+    <article className="mt-3 rounded-lg border border-line-2 bg-white p-4">
       <header>
         <h3 className="text-base font-semibold">Batch evaluation</h3>
-        <p className="mt-1 text-xs text-[#787774]">
+        <p className="mt-1 text-xs text-ink-3">
           {total} jobs · status: {status}
         </p>
       </header>
 
       <div className="mt-3 grid grid-cols-4 gap-2 text-center text-xs">
-        <div className="rounded bg-[#fbfbfa] p-2">
-          <div className="text-[#787774]">Total</div>
+        <div className="rounded bg-sidebar p-2">
+          <div className="text-ink-3">Total</div>
           <div className="text-lg font-semibold">{total}</div>
         </div>
-        <div className="rounded bg-[#fbfbfa] p-2">
-          <div className="text-[#787774]">L0</div>
+        <div className="rounded bg-sidebar p-2">
+          <div className="text-ink-3">L0</div>
           <div className="text-lg font-semibold">{l0}</div>
         </div>
-        <div className="rounded bg-[#fbfbfa] p-2">
-          <div className="text-[#787774]">L1</div>
+        <div className="rounded bg-sidebar p-2">
+          <div className="text-ink-3">L1</div>
           <div className="text-lg font-semibold">{l1}</div>
         </div>
-        <div className="rounded bg-[#fbfbfa] p-2">
-          <div className="text-[#787774]">L2</div>
+        <div className="rounded bg-sidebar p-2">
+          <div className="text-ink-3">L2</div>
           <div className="text-lg font-semibold">{l2}</div>
         </div>
       </div>
 
       {summary && (
-        <p className="mt-2 text-xs text-[#787774]">
+        <p className="mt-2 text-xs text-ink-3">
           Filtered: {summary.filtered} · Done: {summary.done}
         </p>
       )}
@@ -82,7 +82,7 @@ export function BatchProgressCard({ data }: { data: BatchProgressCardData }) {
       {status === 'completed' && top.length > 0 && (
         <>
           <h4 className="mt-4 text-sm font-medium">Top matches</h4>
-          <ul className="mt-2 divide-y divide-[#e3e2e0]">
+          <ul className="mt-2 divide-y divide-line-2">
             {top.map((t) => (
               <li
                 key={t.evaluation_id}
@@ -90,11 +90,11 @@ export function BatchProgressCard({ data }: { data: BatchProgressCardData }) {
               >
                 <div>
                   <strong>{t.job_title}</strong>{' '}
-                  <span className="text-[#787774]">@ {t.company ?? '?'}</span>
+                  <span className="text-ink-3">@ {t.company ?? '?'}</span>
                 </div>
                 <span
                   className={`rounded px-2 py-0.5 text-xs font-semibold ${
-                    GRADE_COLOR[t.overall_grade] ?? 'bg-[#787774] text-white'
+                    GRADE_COLOR[t.overall_grade] ?? 'bg-ink-4 text-white'
                   }`}
                 >
                   {t.overall_grade}
@@ -106,7 +106,7 @@ export function BatchProgressCard({ data }: { data: BatchProgressCardData }) {
       )}
 
       {status === 'failed' && (
-        <p className="mt-3 text-sm text-[#e03e3e]">Batch failed.</p>
+        <p className="mt-3 text-sm text-red-600">Batch failed.</p>
       )}
     </article>
   );
