@@ -6,6 +6,7 @@ import {
   AuthShell,
   GradientSubmit,
 } from '../components/auth/AuthShell';
+import { PasswordField } from '../components/auth/PasswordField';
 import { ApiError } from '../lib/api';
 import { storeSession } from '../lib/auth';
 import { loginRequest } from '../lib/authApi';
@@ -45,6 +46,7 @@ export default function LoginPage() {
 
   return (
     <AuthShell
+      eyebrow="Welcome back"
       title={
         <>
           Sign in to{' '}
@@ -60,6 +62,14 @@ export default function LoginPage() {
         </>
       }
       subtitle="Pick up where you left off. Your evaluations, pipeline, and scans are waiting."
+      headerSwap={
+        <span>
+          New here?{' '}
+          <a href="/signup" className="font-medium text-ink hover:underline">
+            Create an account
+          </a>
+        </span>
+      }
       footer={
         <div className="flex items-center justify-between">
           <span>
@@ -83,15 +93,15 @@ export default function LoginPage() {
           type="email"
           autoComplete="email"
           required
+          placeholder="you@example.com"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           disabled={busy}
         />
-        <AuthField
-          label="Password"
-          type="password"
+        <PasswordField
           autoComplete="current-password"
           required
+          placeholder="Your password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           disabled={busy}

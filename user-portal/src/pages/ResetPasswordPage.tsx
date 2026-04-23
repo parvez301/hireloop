@@ -2,10 +2,10 @@ import { useState } from 'react';
 
 import {
   AuthError,
-  AuthField,
   AuthShell,
   GradientSubmit,
 } from '../components/auth/AuthShell';
+import { PasswordField } from '../components/auth/PasswordField';
 import { ApiError } from '../lib/api';
 import { storeSession } from '../lib/auth';
 import { resetPasswordRequest } from '../lib/authApi';
@@ -81,19 +81,18 @@ export default function ResetPasswordPage({ token }: Props) {
         </div>
       ) : (
         <form onSubmit={onSubmit} className="flex flex-col gap-4">
-          <AuthField
+          <PasswordField
             label="New password"
-            type="password"
             autoComplete="new-password"
             required
             minLength={10}
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             disabled={busy}
+            strength
           />
-          <AuthField
+          <PasswordField
             label="Confirm new password"
-            type="password"
             autoComplete="new-password"
             required
             minLength={10}
@@ -104,7 +103,6 @@ export default function ResetPasswordPage({ token }: Props) {
           {mismatch && (
             <p className="text-[12px] text-amber">Passwords don't match.</p>
           )}
-          <p className="text-[11px] text-ink-4">At least 10 characters.</p>
           <GradientSubmit
             disabled={
               busy ||

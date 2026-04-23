@@ -9,6 +9,7 @@ type Props = {
   footer?: ReactNode;
   children: ReactNode;
   brandPanel?: boolean;
+  headerSwap?: ReactNode;
 };
 
 export function AuthShell({
@@ -18,22 +19,28 @@ export function AuthShell({
   footer,
   children,
   brandPanel = true,
+  headerSwap,
 }: Props) {
   return (
     <div className="flex min-h-screen bg-bg text-ink [font-feature-settings:'ss01','cv11']">
       <header className="absolute top-0 left-0 right-0 z-10 border-b border-line/70 bg-bg/80 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-8">
-          <span
-            aria-hidden
-            className="h-6 w-6 rounded-md"
-            style={{
-              backgroundImage:
-                'linear-gradient(135deg, #14b8a6 0%, #2563eb 45%, #7c3aed 100%)',
-            }}
-          />
-          <span className="text-[15px] font-semibold tracking-tight text-ink">
-            HireLoop
-          </span>
+        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-8">
+          <div className="flex items-center gap-3">
+            <span
+              aria-hidden
+              className="h-6 w-6 rounded-md"
+              style={{
+                backgroundImage:
+                  'linear-gradient(135deg, #14b8a6 0%, #2563eb 45%, #7c3aed 100%)',
+              }}
+            />
+            <span className="text-[15px] font-semibold tracking-tight text-ink">
+              HireLoop
+            </span>
+          </div>
+          {headerSwap && (
+            <div className="text-[12px] text-ink-3">{headerSwap}</div>
+          )}
         </div>
       </header>
 
@@ -61,10 +68,6 @@ export function AuthShell({
           <div className="mt-8">{children}</div>
 
           {footer && <div className="mt-6 text-[13px] text-ink-3">{footer}</div>}
-
-          <p className="mt-10 text-[12px] text-ink-4">
-            By continuing you agree to our Terms and Privacy Policy.
-          </p>
         </div>
       </main>
 
