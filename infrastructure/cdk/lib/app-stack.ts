@@ -49,6 +49,13 @@ function buildApiEnv(scope: Construct, env: string, props: LambdaEnvContext): Re
     COGNITO_JWKS_URL: `https://cognito-idp.${region}.amazonaws.com/${props.userPoolId}/.well-known/jwks.json`,
     AWS_S3_BUCKET: props.assetsBucketName,
     DISABLE_PAYWALL: "false",
+    // Dev-only test harness secret — value read from Secrets Manager if
+    // present, empty otherwise. The /_internal endpoints self-gate on
+    // environment + this value so an empty string = blocked.
+    DEV_INTERNAL_SECRET:
+      env === "dev"
+        ? readJson(`hireloop/${env}/dev-internal-secret`, "value")
+        : "",
   };
 }
 
@@ -530,6 +537,16 @@ ${fetchEnvScript}FETCHENV`,
       new iam.PolicyStatement({
         actions: ["cloudfront:CreateInvalidation", "cloudfront:GetInvalidation"],
         resources: ["*"],
+      }),
+    );
+    // Smoke-test job needs to read the dev-internal-secret at runtime to
+    // authenticate against /_internal/ensure_smoke_user. Scoped to dev.
+    oidcRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ["secretsmanager:GetSecretValue"],
+        resources: [
+          `arn:aws:secretsmanager:${this.region}:${this.account}:secret:hireloop/${env}/dev-internal-secret-*`,
+        ],
       }),
     );
 

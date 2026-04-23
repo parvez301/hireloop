@@ -19,6 +19,7 @@ from hireloop.api import (
     evaluations,
     feedback,
     health,
+    internal,
     interview_preps,
     jobs,
     negotiations,
@@ -97,6 +98,8 @@ def create_app() -> FastAPI:
     app.include_router(interview_preps.router, prefix="/api/v1")
     app.include_router(negotiations.router, prefix="/api/v1")
     app.include_router(briefing.router, prefix="/api/v1")
+    if settings.environment == "dev":
+        app.include_router(internal.router, prefix="/api/v1")
     app.include_router(onboarding.router, prefix="/api/v1")
     app.include_router(star_stories.router, prefix="/api/v1")
     app.include_router(feedback.router, prefix="/api/v1")

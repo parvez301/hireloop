@@ -388,6 +388,8 @@ jobs:
           set -euo pipefail
           API=https://api.dev.hireloop.xyz
           SSE=https://sse.dev.hireloop.xyz
+          EMAIL=smoke@hireloop.internal
+
           # Retry healthz with backoff — Lambda cold-start after
           # update-function-code can exceed a single curl timeout.
           healthcheck() {
@@ -401,12 +403,26 @@ jobs:
           }
           healthcheck "$API/healthz"
           healthcheck "$SSE/healthz"
-          CLIENT_ID=$(aws ssm get-parameter --name /hireloop/dev/cognito/user-pool-client-id --query Parameter.Value --output text)
-          TOKEN=$(aws cognito-idp initiate-auth --client-id "$CLIENT_ID" --auth-flow USER_PASSWORD_AUTH \
-            --auth-parameters "USERNAME=smoke@hireloop.internal,PASSWORD=${DEV_SMOKE_PASSWORD}" \
-            --query 'AuthenticationResult.IdToken' --output text)
+
+          # Custom-auth smoke: idempotently provision a verified test user
+          # via the dev-only /_internal endpoint, then login + /auth/me.
+          DEV_SECRET=$(aws secretsmanager get-secret-value \
+            --secret-id hireloop/dev/dev-internal-secret \
+            --query SecretString --output text | jq -r .value)
+
+          curl -fsS --max-time 15 -X POST "$API/api/v1/_internal/ensure_smoke_user" \
+            -H "content-type: application/json" \
+            -H "x-dev-secret: $DEV_SECRET" \
+            -d "{\"email\":\"$EMAIL\",\"password\":\"$DEV_SMOKE_PASSWORD\"}"
+
+          LOGIN_JSON=$(curl -fsS --max-time 15 -X POST "$API/api/v1/auth/login" \
+            -H "content-type: application/json" \
+            -d "{\"email\":\"$EMAIL\",\"password\":\"$DEV_SMOKE_PASSWORD\",\"remember\":false}")
+          TOKEN=$(echo "$LOGIN_JSON" | jq -r '.data.idToken')
+          [ -n "$TOKEN" ] && [ "$TOKEN" != "null" ]
+
           curl -fsS --max-time 15 -H "Authorization: Bearer $TOKEN" "$API/api/v1/auth/me" \
-            | jq -e '.data.email == "smoke@hireloop.internal"'
+            | jq -e ".data.email == \"$EMAIL\""
       - name: Record last-green SHA
         run: |
           aws ssm put-parameter --name /hireloop/dev/last-green-sha \

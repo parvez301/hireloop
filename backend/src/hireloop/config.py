@@ -52,6 +52,11 @@ class Settings(BaseSettings):
     email_from: str = "no-reply@hireloop.xyz"
     email_from_name: str = "HireLoop"
 
+    # Dev-only internal endpoints (smoke-test harness) require this header
+    # to match. Empty in non-dev environments blocks access. Set via
+    # DEV_INTERNAL_SECRET env var.
+    dev_internal_secret: str = ""
+
     anthropic_api_key: str = ""
     # When set, the Anthropic SDK is pointed at this URL instead of
     # api.anthropic.com. Used to route LLM calls through the llm-bridge
