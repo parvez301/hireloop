@@ -29,10 +29,13 @@ class Settings(BaseSettings):
     aws_secret_access_key: str | None = None
     aws_session_token: str | None = None
 
-    cognito_user_pool_id: str
-    cognito_client_id: str
-    cognito_region: str
-    cognito_jwks_url: str
+    # Cognito fields are only loaded when AUTH_MODE="cognito". Defaulted
+    # to empty so the custom-auth path (new default) doesn't force every
+    # caller — migrations, tests, local dev — to supply them.
+    cognito_user_pool_id: str = ""
+    cognito_client_id: str = ""
+    cognito_region: str = ""
+    cognito_jwks_url: str = ""
 
     # In-house auth (feature flag: AUTH_MODE='cognito'|'custom').
     # Default is 'custom' — Cognito path stays available behind the flag for
