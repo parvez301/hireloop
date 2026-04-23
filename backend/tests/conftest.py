@@ -1,7 +1,8 @@
 import getpass
 import os
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 import pytest_asyncio
@@ -276,6 +277,36 @@ async def seeded_evaluation_for_user_a(seed_profile: None):
         await session.commit()
         await session.refresh(ev)
         return ev
+
+
+@pytest.fixture(autouse=True)
+def _default_fake_anthropic(request: pytest.FixtureRequest) -> Iterator[None]:
+    """Autouse safety net — any test that doesn't wrap its call in
+    `fake_anthropic({...})` still gets intercepted so we never hit the real
+    Anthropic API with a `test-key`. Explicit `fake_anthropic` contexts inside
+    the test override this by re-patching the same targets."""
+    if request.node.get_closest_marker("nofakeanthropic"):
+        yield
+        return
+    from tests.fixtures.fake_anthropic import FakeAnthropicClient, _Wrapper
+
+    fake = FakeAnthropicClient({})
+    wrapper = _Wrapper(fake)
+    with (
+        patch(
+            "hireloop.core.llm.anthropic_client._get_client",
+            return_value=wrapper,
+        ),
+        patch(
+            "hireloop.core.llm.anthropic_client.get_client",
+            return_value=wrapper,
+        ),
+        patch(
+            "hireloop.core.llm.anthropic_client.get_batch_client",
+            return_value=wrapper,
+        ),
+    ):
+        yield
 
 
 @pytest_asyncio.fixture(autouse=True)

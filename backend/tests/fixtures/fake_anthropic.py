@@ -59,29 +59,45 @@ class FakeAnthropicClient:
         return FakeMessage(content=[FakeContentBlock(type="text", text=reply)])
 
 
+class _Messages:
+    def __init__(self, inner: FakeAnthropicClient):
+        self._inner = inner
+
+    async def create(self, **kwargs: Any) -> FakeMessage:
+        return await self._inner.messages_create(**kwargs)
+
+
+class _Wrapper:
+    def __init__(self, inner: FakeAnthropicClient):
+        self._inner = inner
+
+    @property
+    def messages(self) -> _Messages:
+        return _Messages(self._inner)
+
+
 @contextmanager
 def fake_anthropic(responses: dict[str, str]) -> Iterator[FakeAnthropicClient]:
     fake = FakeAnthropicClient(responses)
-
-    class _Wrapper:
-        def __init__(self, inner: FakeAnthropicClient):
-            self._inner = inner
-
-        @property
-        def messages(self) -> _Messages:
-            return _Messages(self._inner)
-
-    class _Messages:
-        def __init__(self, inner: FakeAnthropicClient):
-            self._inner = inner
-
-        async def create(self, **kwargs: Any) -> FakeMessage:
-            return await self._inner.messages_create(**kwargs)
-
     wrapper = _Wrapper(fake)
 
-    with patch(
-        "hireloop.core.llm.anthropic_client.get_client",
-        return_value=wrapper,
+    # Patch the internal `_get_client` — it's the function every code path
+    # reaches through (get_client / get_batch_client / complete_with_cache
+    # all route here). Patching only `get_client` misses complete_with_cache
+    # which is how evaluation / CV / interview-prep / batch paths call Claude.
+    # Also patch the lru_cache'd singleton so subsequent calls don't bypass us.
+    with (
+        patch(
+            "hireloop.core.llm.anthropic_client._get_client",
+            return_value=wrapper,
+        ),
+        patch(
+            "hireloop.core.llm.anthropic_client.get_client",
+            return_value=wrapper,
+        ),
+        patch(
+            "hireloop.core.llm.anthropic_client.get_batch_client",
+            return_value=wrapper,
+        ),
     ):
         yield fake
