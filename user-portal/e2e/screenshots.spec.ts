@@ -127,6 +127,50 @@ function fulfillFixture(route: Route, url: string): Promise<void> {
       ],
     });
   }
+  if (/\/api\/v1\/jobs\/[^/]+$/.test(url)) {
+    const id = url.split('/').pop() ?? '';
+    const catalogue: Record<string, { job: Record<string, unknown>; grade: string | null }> = {
+      j1: {
+        job: { id: 'j1', title: 'Principal Designer', company: 'Vercel', location: 'Remote' },
+        grade: 'A',
+      },
+      j2: {
+        job: { id: 'j2', title: 'Staff PM', company: 'Linear', location: 'SF / Remote' },
+        grade: 'A-',
+      },
+      j3: {
+        job: { id: 'j3', title: 'Sr. Product Designer', company: 'Acme', location: 'Remote' },
+        grade: 'B+',
+      },
+    };
+    const entry = catalogue[id] ?? catalogue.j1;
+    return json({
+      data: {
+        job: {
+          ...entry.job,
+          content_hash: `hash-${id}`,
+          url: null,
+          description_md: 'Mocked description',
+          requirements_json: null,
+          salary_min: 180000,
+          salary_max: 240000,
+          source: 'manual',
+          created_at: now,
+        },
+        evaluation: entry.grade
+          ? {
+              id: `ev-${id}`,
+              overall_grade: entry.grade,
+              match_score: 0.84,
+              reasoning: 'Mocked.',
+              dimension_scores: {},
+              red_flags: null,
+              recommendation: 'strong_match',
+            }
+          : null,
+      },
+    });
+  }
   if (url.includes('/api/v1/scan-configs')) {
     return json({
       data: [
