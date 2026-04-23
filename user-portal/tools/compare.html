@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>HireLoop · live vs prototype</title>
+<style>
+  :root { --fg:#1f1d1a; --muted:#6b6966; --bg:#faf9f7; --line:#e7e5e0; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:14px/1.5 ui-sans-serif,system-ui,sans-serif; color:var(--fg); background:var(--bg); }
+  header { padding:20px 28px; border-bottom:1px solid var(--line); background:#fff; position:sticky; top:0; z-index:10; }
+  header h1 { margin:0; font-size:16px; font-weight:600; }
+  header p { margin:4px 0 0; color:var(--muted); font-size:12px; }
+  section { padding:16px 28px; border-bottom:1px solid var(--line); }
+  h2 { margin:0 0 10px; font-size:13px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; }
+  .pair { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+  .card-head { padding:8px 12px; border-bottom:1px solid var(--line); font-size:12px; display:flex; justify-content:space-between; }
+  .card-head .tag { color:var(--muted); font-variant:small-caps; letter-spacing:.05em; }
+  .card img { display:block; width:100%; height:auto; }
+  .missing { display:flex; align-items:center; justify-content:center; height:360px; color:var(--muted); font-size:12px; background:repeating-linear-gradient(45deg,#f4f2ee,#f4f2ee 8px,#ece9e3 8px,#ece9e3 16px); }
+  nav { padding:12px 28px; background:#fff; border-bottom:1px solid var(--line); font-size:12px; }
+  nav a { margin-right:14px; color:var(--muted); text-decoration:none; }
+  nav a:hover { color:var(--fg); }
+  #errors { background:#fff8f2; border:1px solid #f5d7b8; padding:10px 14px; border-radius:8px; margin:16px 28px; font-size:12px; color:#7a4a12; }
+  #errors:empty { display:none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Live vs prototype — HireLoop user portal</h1>
+  <p>Live = <code>/tmp/hl-screens/live/</code>. Proto = <code>/tmp/hl-screens/proto/</code>. Re-run: <code>bash user-portal/tools/screenshot.sh</code></p>
+</header>
+<nav>
+  <a href="#auth">Auth</a>
+  <a href="#onboarding">Onboarding</a>
+  <a href="#post">Post-onboarding (dashboard + modules)</a>
+  <a href="#profile">Profile tabs</a>
+</nav>
+<pre id="errors"></pre>
+
+<section id="auth">
+  <h2>Auth</h2>
+  <div id="auth-pairs"></div>
+</section>
+<section id="onboarding">
+  <h2>Onboarding</h2>
+  <div id="onboarding-pairs"></div>
+</section>
+<section id="post">
+  <h2>Post-onboarding — sidebar modules</h2>
+  <div id="post-pairs"></div>
+</section>
+<section id="profile">
+  <h2>Profile — tab views</h2>
+  <div id="profile-pairs"></div>
+</section>
+
+<script>
+const LIVE = 'file:///tmp/hl-screens/live/';
+const PROTO = 'file:///tmp/hl-screens/proto/';
+
+const groups = {
+  'auth-pairs': [
+    { label: '/login',        live: 'login.png',          proto: 'Auth_Redesign.png' },
+    { label: '/signup',       live: 'signup.png',         proto: 'Auth_Redesign.png' },
+    { label: '/auth/verify',  live: 'auth_verify.png',    proto: 'Auth_Redesign.png' },
+    { label: '/auth/forgot',  live: 'auth_forgot.png',    proto: 'Auth_Redesign.png' },
+    { label: '/auth/reset',   live: 'auth_reset_token_FAKE.png', proto: 'Auth_Redesign.png' },
+  ],
+  'onboarding-pairs': [
+    { label: '(onboarding redesign)',  live: null, proto: 'Onboarding_Redesign.png' },
+    { label: '(current onboarding)',   live: null, proto: 'Current_Onboarding.png' },
+  ],
+  'post-pairs': [
+    { label: '/ (dashboard)',        live: 'root.png',             proto: 'Post-Onboarding_Review__dashboard.png' },
+    { label: '/pipeline',            live: 'pipeline.png',         proto: 'Post-Onboarding_Review__pipeline.png' },
+    { label: '/scans',               live: 'scans.png',            proto: 'Post-Onboarding_Review__scans.png' },
+    { label: '/interview-prep',      live: 'interview-prep.png',   proto: 'Post-Onboarding_Review__interview.png' },
+    { label: '/story-bank',          live: 'story-bank.png',       proto: 'Post-Onboarding_Review__stories.png' },
+    { label: '/negotiations',        live: 'negotiations.png',     proto: 'Post-Onboarding_Review__negotiation.png' },
+    { label: '/settings/billing',    live: 'settings_billing.png', proto: 'Post-Onboarding_Review__billing.png' },
+  ],
+  'profile-pairs': [
+    { label: '/profile/basics (basics tab)', live: 'profile_basics.png', proto: 'Profile__basics.png' },
+    { label: '/profile/basics (resume tab)', live: null,                  proto: 'Profile__resume.png' },
+    { label: '/profile/basics (targets)',    live: null,                  proto: 'Profile__targets.png' },
+    { label: '/profile/basics (social)',     live: null,                  proto: 'Profile__social.png' },
+    { label: '/profile/basics (privacy)',    live: null,                  proto: 'Profile__privacy.png' },
+  ],
+};
+
+function card(tag, src, alt) {
+  const div = document.createElement('div');
+  div.className = 'card';
+  const head = document.createElement('div');
+  head.className = 'card-head';
+  head.innerHTML = `<strong>${alt}</strong><span class="tag">${tag}</span>`;
+  div.appendChild(head);
+  if (src) {
+    const img = document.createElement('img');
+    img.src = src; img.alt = alt; img.loading = 'lazy';
+    img.onerror = () => { img.remove(); const m = document.createElement('div'); m.className='missing'; m.textContent='(not captured)'; div.appendChild(m); };
+    div.appendChild(img);
+  } else {
+    const m = document.createElement('div');
+    m.className = 'missing';
+    m.textContent = '(not captured)';
+    div.appendChild(m);
+  }
+  return div;
+}
+
+for (const [id, pairs] of Object.entries(groups)) {
+  const host = document.getElementById(id);
+  for (const pair of pairs) {
+    const label = document.createElement('div');
+    label.style.cssText = 'font-size:12px;color:#6b6966;margin:12px 0 6px;font-family:ui-monospace,monospace;';
+    label.textContent = pair.label;
+    host.appendChild(label);
+    const row = document.createElement('div');
+    row.className = 'pair';
+    row.appendChild(card('live',  pair.live  ? LIVE  + pair.live  : null, 'live: ' + pair.label));
+    row.appendChild(card('proto', pair.proto ? PROTO + pair.proto : null, 'proto: ' + pair.label));
+    host.appendChild(row);
+  }
+}
+
+// Try to show errors.json if present.
+fetch('file:///tmp/hl-screens/errors.json')
+  .then((r) => r.ok ? r.json() : [])
+  .then((errors) => {
+    if (!errors || !errors.length) return;
+    document.getElementById('errors').textContent =
+      'Routes that errored:\n' + errors.map((e) => `  ${e.route}: ${e.error}`).join('\n');
+  })
+  .catch(() => {});
+</script>
+</body>
+</html>
