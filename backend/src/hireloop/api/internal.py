@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from hireloop.api.deps import DbSession
 from hireloop.api.errors import AppError
 from hireloop.config import get_settings
+from hireloop.models.profile import Profile
 from hireloop.models.user import User
 from hireloop.services.passwords import hash_password
 
@@ -55,6 +56,55 @@ async def ensure_smoke_user(
     row = await _upsert_smoke_user(db, email=body.email, password=body.password)
     _ = row  # committed by DbSession wrapper
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+class ResetOnboardingRequest(BaseModel):
+    email: EmailStr
+    wipe_resume: bool = True
+
+
+@router.post("/reset_onboarding")
+async def reset_onboarding(
+    body: ResetOnboardingRequest,
+    db: DbSession,
+    x_dev_secret: str | None = Header(default=None, alias="x-dev-secret"),
+) -> dict[str, object]:
+    """Put a user back into onboarding.
+
+    Sets `profile.onboarding_state='resume_upload'` so the frontend's gate
+    (App.tsx checks `!== 'done'`) redirects to `/onboarding` on next
+    navigation. When `wipe_resume=True` (default) also nulls `master_resume_md`
+    + `parsed_resume_json` so the wizard starts from step 1; otherwise it
+    resumes mid-flow at the post-upload step.
+    """
+    _guard(x_dev_secret)
+
+    user = (await db.execute(select(User).where(User.email == body.email))).scalar_one_or_none()
+    if user is None:
+        raise AppError(404, "NOT_FOUND", f"No user for {body.email}")
+
+    profile = (
+        await db.execute(select(Profile).where(Profile.user_id == user.id))
+    ).scalar_one_or_none()
+    if profile is None:
+        profile = Profile(user_id=user.id, onboarding_state="resume_upload")
+        db.add(profile)
+    else:
+        profile.onboarding_state = "resume_upload"
+        if body.wipe_resume:
+            profile.master_resume_md = None
+            profile.parsed_resume_json = None
+            profile.master_resume_s3 = None
+
+    await db.flush()
+    return {
+        "data": {
+            "email": body.email,
+            "user_id": str(user.id),
+            "onboarding_state": profile.onboarding_state,
+            "resume_wiped": body.wipe_resume,
+        }
+    }
 
 
 async def _upsert_smoke_user(db: AsyncSession, *, email: str, password: str) -> User:
