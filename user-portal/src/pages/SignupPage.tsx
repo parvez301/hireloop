@@ -61,10 +61,32 @@ export default function SignupPage() {
       headerSwap={
         <span>
           Already a member?{' '}
-          <a href="/login" className="font-medium text-ink hover:underline">
+          <a
+            href="/login"
+            className="ml-1 font-medium text-ink underline decoration-dotted underline-offset-4 hover:decoration-solid"
+          >
             Sign in
           </a>
         </span>
+      }
+      footer={
+        <p className="text-center text-[12px] text-ink-3">
+          By creating an account you agree to our{' '}
+          <a
+            href="/terms"
+            className="text-ink underline decoration-dotted underline-offset-4 hover:decoration-solid"
+          >
+            Terms
+          </a>{' '}
+          and{' '}
+          <a
+            href="/privacy"
+            className="text-ink underline decoration-dotted underline-offset-4 hover:decoration-solid"
+          >
+            Privacy&nbsp;Policy
+          </a>
+          .
+        </p>
       }
     >
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
@@ -114,17 +136,6 @@ export default function SignupPage() {
           {busy ? 'Creating account…' : 'Create account'}
         </GradientSubmit>
         <AuthError>{error}</AuthError>
-        <p className="mt-2 text-center text-[12px] text-ink-3">
-          By creating an account you agree to our{' '}
-          <a href="#" className="text-ink hover:underline">
-            Terms
-          </a>{' '}
-          and{' '}
-          <a href="#" className="text-ink hover:underline">
-            Privacy Policy
-          </a>
-          .
-        </p>
       </form>
     </AuthShell>
   );

@@ -125,80 +125,82 @@ export function AuthBrandPanel() {
 
   return (
     <aside
-      className="relative hidden min-h-screen w-[44%] max-w-[680px] flex-col justify-between overflow-hidden border-l border-line bg-bg px-12 py-16 lg:flex"
+      className="relative hidden overflow-hidden border-l border-line bg-bg lg:block"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       aria-label="Live evaluation preview"
     >
       <div
         aria-hidden
-        className="pointer-events-none absolute -right-20 -top-20 h-96 w-96 rounded-full opacity-40 blur-3xl"
+        className="pointer-events-none absolute inset-0"
         style={{
           backgroundImage:
-            'radial-gradient(circle at 30% 30%, #14b8a6, transparent 55%), radial-gradient(circle at 70% 40%, #2563eb, transparent 55%), radial-gradient(circle at 50% 80%, #7c3aed, transparent 55%)',
+            'radial-gradient(900px 500px at 85% 10%, rgba(37,99,235,0.18), transparent 60%), radial-gradient(600px 400px at 15% 90%, rgba(20,184,166,0.15), transparent 60%), radial-gradient(500px 400px at 65% 85%, rgba(124,58,237,0.14), transparent 60%)',
         }}
       />
 
-      <div className="relative">
-        <div className="text-[11px] uppercase tracking-[0.18em] text-ink-3">
-          The loop
+      <div className="relative flex h-full flex-col justify-between p-14">
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.18em] text-ink-3">
+            The loop
+          </p>
+          <h2 className="mt-4 max-w-md text-[44px] font-semibold leading-[1.05] tracking-[-0.02em] text-ink">
+            Every job,{' '}
+            <span
+              className="bg-clip-text text-transparent"
+              style={{
+                backgroundImage:
+                  'linear-gradient(135deg, #14b8a6 0%, #2563eb 45%, #7c3aed 100%)',
+              }}
+            >
+              evaluated
+            </span>{' '}
+            against the real you.
+          </h2>
+          <p className="mt-4 max-w-md text-[15px] leading-relaxed text-ink-3">
+            Paste any role. Get a grade, a plain-English verdict, and the exact
+            watch-outs to raise on the call. No keyword games.
+          </p>
         </div>
-        <h2 className="mt-3 max-w-md text-[38px] font-semibold leading-[1.05] tracking-[-0.02em] text-ink">
-          Every job,{' '}
-          <span
-            className="bg-clip-text text-transparent"
-            style={{
-              backgroundImage:
-                'linear-gradient(135deg, #14b8a6 0%, #2563eb 45%, #7c3aed 100%)',
-            }}
-          >
-            evaluated
-          </span>{' '}
-          against the real you.
-        </h2>
-        <p className="mt-4 max-w-md text-[14px] leading-relaxed text-ink-3">
-          Paste any role. Get a grade, a plain-English verdict, and the exact
-          watch-outs to raise on the call. No keyword games.
-        </p>
-      </div>
 
-      <div className="relative my-8 max-w-md" key={card.id}>
-        <EvalCard card={card} />
-        <div className="mt-3 flex items-center justify-between text-[11px] text-ink-4">
-          <div className="flex items-center gap-1.5">
-            {LIVE_EVAL_CARDS.map((entry, index) => (
-              <button
-                key={entry.id}
-                type="button"
-                onClick={() => setActiveIndex(index)}
-                aria-label={`Show card ${index + 1}`}
-                className={
-                  'h-1.5 rounded-full transition-all duration-200 motion-reduce:transition-none ' +
-                  (index === activeIndex ? 'w-6 bg-ink/70' : 'w-1.5 bg-line-2')
-                }
-              />
-            ))}
+        <div className="relative max-w-md" key={card.id}>
+          <EvalCard card={card} />
+          <div className="mt-4 flex items-center justify-between text-[11px] text-ink-4">
+            <div className="flex items-center gap-1.5">
+              {LIVE_EVAL_CARDS.map((entry, index) => (
+                <button
+                  key={entry.id}
+                  type="button"
+                  onClick={() => setActiveIndex(index)}
+                  aria-label={`Show card ${index + 1}`}
+                  className={
+                    'h-1.5 rounded-full transition-all duration-200 motion-reduce:transition-none ' +
+                    (index === activeIndex ? 'w-6 bg-ink/70' : 'w-1.5 bg-line-2')
+                  }
+                />
+              ))}
+            </div>
+            <span className="uppercase tracking-[0.12em]">
+              Live evaluation · {activeIndex + 1} / {LIVE_EVAL_CARDS.length}
+            </span>
           </div>
-          <span className="uppercase tracking-[0.12em]">
-            Live evaluation · {activeIndex + 1} / {LIVE_EVAL_CARDS.length}
-          </span>
         </div>
-      </div>
 
-      <div className="relative max-w-md">
-        <p className="text-[15px] leading-relaxed text-ink-2">
-          "I stopped guessing which jobs were worth my time. HireLoop tells me in
-          40 seconds."
-        </p>
-        <p className="mt-2 text-[12px] text-ink-3">
-          — Morgan L., product designer · 3 offers in 5 weeks
-        </p>
-        <div className="mt-6 flex items-center gap-4 text-[11px] uppercase tracking-[0.16em] text-ink-4">
-          <span>SOC&nbsp;2</span>
-          <span>·</span>
-          <span>GDPR</span>
-          <span>·</span>
-          <span>Your data, deletable</span>
+        <div className="max-w-md">
+          <p className="text-[16px] leading-relaxed text-ink-2">
+            "I stopped guessing which jobs were worth my time. HireLoop tells me
+            in 40 seconds."
+          </p>
+          <p className="mt-3 text-[12px] text-ink-3">
+            — Morgan L., product designer · 3 offers in 5 weeks
+          </p>
+          <div className="mt-8 flex items-center gap-4 text-[11px] uppercase tracking-[0.16em] text-ink-4">
+            <span>SOC&nbsp;2</span>
+            <span>·</span>
+            <span>GDPR</span>
+            <span>·</span>
+            <span>Your data, deletable</span>
+          </div>
         </div>
       </div>
     </aside>

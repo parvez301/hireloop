@@ -22,13 +22,13 @@ export function AuthShell({
   headerSwap,
 }: Props) {
   return (
-    <div className="flex min-h-screen bg-bg text-ink [font-feature-settings:'ss01','cv11']">
-      <header className="absolute top-0 left-0 right-0 z-10 border-b border-line/70 bg-bg/80 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-8">
-          <div className="flex items-center gap-3">
+    <main className="grid min-h-screen grid-cols-1 bg-bg text-ink lg:grid-cols-2 [font-feature-settings:'ss01','cv11']">
+      <section className="relative flex flex-col px-6 py-8 lg:px-16 lg:py-10">
+        <header className="flex items-center justify-between">
+          <a href="/" className="flex items-center gap-2.5">
             <span
               aria-hidden
-              className="h-6 w-6 rounded-md"
+              className="h-7 w-7 rounded-md"
               style={{
                 backgroundImage:
                   'linear-gradient(135deg, #14b8a6 0%, #2563eb 45%, #7c3aed 100%)',
@@ -37,24 +37,17 @@ export function AuthShell({
             <span className="text-[15px] font-semibold tracking-tight text-ink">
               HireLoop
             </span>
-          </div>
+          </a>
           {headerSwap && (
             <div className="text-[12px] text-ink-3">{headerSwap}</div>
           )}
-        </div>
-      </header>
+        </header>
 
-      <main
-        className={
-          'flex flex-1 items-center justify-center px-6 py-24 animate-fade-up motion-reduce:animate-none ' +
-          (brandPanel ? 'lg:py-0' : '')
-        }
-      >
-        <div className="w-full max-w-md">
+        <div className="mx-auto my-auto w-full max-w-md py-10 animate-fade-up motion-reduce:animate-none">
           {eyebrow && (
-            <div className="text-[11px] uppercase tracking-[0.18em] text-ink-3">
+            <p className="text-[11px] uppercase tracking-[0.18em] text-ink-3">
               {eyebrow}
-            </div>
+            </p>
           )}
           <h1 className="mt-3 text-[40px] font-semibold leading-[1.05] tracking-[-0.02em] text-ink">
             {title}
@@ -69,10 +62,25 @@ export function AuthShell({
 
           {footer && <div className="mt-6 text-[13px] text-ink-3">{footer}</div>}
         </div>
-      </main>
+
+        <footer className="mt-auto flex items-center justify-between text-[11px] text-ink-4">
+          <span>© HireLoop</span>
+          <div className="flex gap-4">
+            <a className="hover:text-ink-3" href="/privacy">
+              Privacy
+            </a>
+            <a className="hover:text-ink-3" href="/terms">
+              Terms
+            </a>
+            <a className="hover:text-ink-3" href="mailto:support@hireloop.xyz">
+              Support
+            </a>
+          </div>
+        </footer>
+      </section>
 
       {brandPanel && <AuthBrandPanel />}
-    </div>
+    </main>
   );
 }
 
