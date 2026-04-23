@@ -30,7 +30,7 @@ export function AuthBrandPanel() {
 
   return (
     <aside
-      className="relative hidden min-h-screen flex-col justify-between bg-card px-12 py-16 lg:flex"
+      className="relative hidden min-h-screen w-[44%] max-w-[640px] flex-col justify-center gap-10 bg-card px-12 py-16 lg:flex"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       aria-label="Customer proof"
@@ -48,9 +48,23 @@ export function AuthBrandPanel() {
         <div className="text-[11px] uppercase tracking-[0.18em] text-ink-3">
           What members are saying
         </div>
-        <h2 className="mt-3 max-w-sm text-[28px] font-semibold leading-tight tracking-[-0.015em] text-ink">
+        <h2 className="mt-3 max-w-md text-[28px] font-semibold leading-tight tracking-[-0.015em] text-ink">
           Grades the jobs you're thinking about. Tells you where to push.
         </h2>
+        <ul className="mt-8 space-y-3 text-[14px] leading-relaxed text-ink-2">
+          {[
+            'Grade every saved job by actual fit to your resume.',
+            'Coaches you on the watch-outs before you apply.',
+            'Runs daily scans in the background while you sleep.',
+          ].map((item, index) => (
+            <li key={item} className="flex items-start gap-3">
+              <span className="mt-0.5 flex h-5 w-5 flex-none items-center justify-center rounded-md bg-ink text-[11px] font-semibold text-white">
+                {index + 1}
+              </span>
+              {item}
+            </li>
+          ))}
+        </ul>
       </div>
 
       <div className="relative">
