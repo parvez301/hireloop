@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft } from 'lucide-react';
 
 import { GradeBar } from '../components/ui/GradeBar';
 import { GradientButton } from '../components/ui/GradientButton';
@@ -44,7 +43,7 @@ export default function JobDetailPage({ id }: Props) {
 
   if (error) {
     return (
-      <WorkspaceShell>
+      <WorkspaceShell crumb="Job detail">
         <div role="alert" className="text-sm text-red-700">
           {error}
         </div>
@@ -54,7 +53,7 @@ export default function JobDetailPage({ id }: Props) {
 
   if (!data) {
     return (
-      <WorkspaceShell>
+      <WorkspaceShell crumb="Job detail">
         <p className="text-ink-3">Loading job…</p>
       </WorkspaceShell>
     );
@@ -62,6 +61,7 @@ export default function JobDetailPage({ id }: Props) {
 
   const { job, evaluation } = data;
   const salary = safeSalary(job.salary_min, job.salary_max);
+  const crumb = `Scans / ${job.company ?? 'Job'} · ${job.title}`;
 
   async function savePipeline() {
     if (saving) return;
@@ -80,15 +80,8 @@ export default function JobDetailPage({ id }: Props) {
   }
 
   return (
-    <WorkspaceShell>
+    <WorkspaceShell crumb={crumb}>
       <div className="mx-auto max-w-5xl space-y-6">
-        <a
-          href="/scans"
-          className="inline-flex items-center gap-1.5 text-[13px] text-ink-3 hover:text-ink"
-        >
-          <ArrowLeft size={14} /> Back
-        </a>
-
         <SoftCard padding="lg" className="relative overflow-hidden">
           <div
             aria-hidden

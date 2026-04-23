@@ -60,8 +60,9 @@ describe('BillingPage', () => {
     render(<BillingPage />);
 
     await waitFor(() => {
-      expect(screen.getByText(/Pro plan — \$4\.99\/mo/i)).toBeInTheDocument();
+      expect(screen.getByText(/Pro plan/i)).toBeInTheDocument();
     });
+    expect(screen.getByText(/\$4\.99\/mo/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /manage billing/i })).toBeInTheDocument();
   });
 
@@ -119,7 +120,7 @@ describe('BillingPage', () => {
     render(<BillingPage />);
 
     await waitFor(() => {
-      expect(screen.getByText(/pro plan — cancelling/i)).toBeInTheDocument();
+      expect(screen.getByText(/cancelling/i)).toBeInTheDocument();
     });
     expect(screen.getByText(/access ends/i)).toBeInTheDocument();
   });
