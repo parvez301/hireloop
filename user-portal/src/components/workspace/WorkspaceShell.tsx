@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
-  Bell,
   Briefcase,
+  ChevronDown,
   FileText,
   LayoutDashboard,
   LogOut,
   MessageSquare,
+  Plus,
   Radar,
   Receipt,
   Search,
@@ -14,8 +15,7 @@ import {
   TrendingUp,
 } from 'lucide-react';
 
-import { AppHeader } from '../ui/AppHeader';
-import { Sidebar, type SidebarItem } from '../ui/Sidebar';
+import { Sidebar, type SidebarSection } from '../ui/Sidebar';
 import { getUserEmail, logout } from '../../lib/auth';
 
 function moduleFromPath(pathname: string): string {
@@ -33,25 +33,68 @@ function moduleFromPath(pathname: string): string {
   return 'dashboard';
 }
 
-const MODULE_ITEMS: SidebarItem[] = [
-  { id: 'dashboard', label: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { id: 'chat', label: 'Ask', href: '/ask', icon: MessageSquare },
-  { id: 'pipeline', label: 'Pipeline', href: '/pipeline', icon: Briefcase },
-  { id: 'scans', label: 'Scans', href: '/scans', icon: Radar },
-  { id: 'interview', label: 'Interview prep', href: '/interview-prep', icon: Sparkles },
-  { id: 'stories', label: 'Story bank', href: '/story-bank', icon: FileText },
-  { id: 'negotiation', label: 'Negotiation', href: '/negotiations', icon: TrendingUp },
-  { id: 'billing', label: 'Billing', href: '/settings/billing', icon: Receipt },
-  { id: 'profile', label: 'Profile', href: '/profile/basics', icon: Settings },
+const MODULE_LABELS: Record<string, string> = {
+  dashboard: 'Dashboard',
+  chat: 'Assistant',
+  pipeline: 'Pipeline',
+  scans: 'Scans',
+  'job-detail': 'Job detail',
+  interview: 'Interview prep',
+  stories: 'Story bank',
+  negotiation: 'Negotiation',
+  billing: 'Billing',
+  profile: 'Profile',
+};
+
+const SECTIONS: SidebarSection[] = [
+  {
+    label: 'Workspace',
+    items: [
+      { id: 'dashboard', label: 'Dashboard', href: '/', icon: LayoutDashboard },
+      { id: 'chat', label: 'Assistant', href: '/ask', icon: MessageSquare },
+      { id: 'pipeline', label: 'Pipeline', href: '/pipeline', icon: Briefcase },
+      { id: 'scans', label: 'Scans', href: '/scans', icon: Radar },
+      {
+        id: 'interview',
+        label: 'Interview prep',
+        href: '/interview-prep',
+        icon: Sparkles,
+      },
+      { id: 'stories', label: 'Story bank', href: '/story-bank', icon: FileText },
+      {
+        id: 'negotiation',
+        label: 'Negotiation',
+        href: '/negotiations',
+        icon: TrendingUp,
+      },
+    ],
+  },
+  {
+    label: 'Account',
+    items: [
+      { id: 'billing', label: 'Billing', href: '/settings/billing', icon: Receipt },
+      { id: 'profile', label: 'Profile', href: '/profile/basics', icon: Settings },
+    ],
+  },
 ];
 
 type Props = {
   children: ReactNode;
   activeOverride?: string;
   dense?: boolean;
+  /** Override the breadcrumb tail text (defaults to the active module label). */
+  crumb?: string;
+  /** Optional right-side actions in the topbar (e.g. "+ Add job"). */
+  topbarActions?: ReactNode;
 };
 
-export function WorkspaceShell({ children, activeOverride, dense = false }: Props) {
+export function WorkspaceShell({
+  children,
+  activeOverride,
+  dense = false,
+  crumb,
+  topbarActions,
+}: Props) {
   const [path, setPath] = useState<string>(() => window.location.pathname);
   useEffect(() => {
     const handler = () => setPath(window.location.pathname);
@@ -65,6 +108,10 @@ export function WorkspaceShell({ children, activeOverride, dense = false }: Prop
     if (!email) return '?';
     const name = email.split('@')[0];
     return name.slice(0, 2).toUpperCase();
+  }, [email]);
+  const displayName = useMemo(() => {
+    if (!email) return 'Account';
+    return email.split('@')[0].replace(/[._-]/g, ' ');
   }, [email]);
 
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -80,57 +127,133 @@ export function WorkspaceShell({ children, activeOverride, dense = false }: Prop
     return () => window.removeEventListener('keydown', listener);
   }, []);
 
+  const crumbText = crumb ?? MODULE_LABELS[activeId] ?? 'Dashboard';
+
   return (
-    <div className="min-h-screen bg-bg text-ink [font-feature-settings:'ss01','cv11']">
-      <AppHeader
-        middle={
-          <div className="flex items-center justify-center">
-            <button
-              type="button"
-              onClick={() => setPaletteOpen(true)}
-              className="inline-flex items-center gap-2 rounded-full border border-line bg-white px-3 py-1 text-[12px] text-ink-3 hover:text-ink"
-            >
-              <Search size={14} />
-              Search
-              <span className="rounded-md bg-card px-1 text-[10px] font-medium text-ink-3">
-                ⌘K
-              </span>
-            </button>
-          </div>
+    <div className="flex min-h-screen bg-bg text-ink [font-feature-settings:'ss01','cv11']">
+      <Sidebar
+        sections={SECTIONS}
+        activeId={activeId}
+        header={
+          <a href="/" className="flex items-center gap-2.5 px-1 py-1">
+            <span
+              aria-hidden
+              className="h-7 w-7 rounded-md"
+              style={{
+                backgroundImage:
+                  'linear-gradient(135deg, #14b8a6 0%, #2563eb 45%, #7c3aed 100%)',
+              }}
+            />
+            <span className="text-[15px] font-semibold tracking-tight text-ink">
+              HireLoop
+            </span>
+          </a>
         }
-        right={
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              className="relative inline-flex h-8 w-8 items-center justify-center rounded-full text-ink-3 hover:text-ink"
-              aria-label="Notifications"
-            >
-              <Bell size={16} />
-            </button>
-            <div
-              aria-label={email ?? 'account'}
-              className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-ink text-[11px] font-semibold text-white"
-            >
-              {initials}
+        footer={
+          <div className="rounded-xl border border-line bg-white p-3">
+            <div className="flex items-center gap-2">
+              <div
+                aria-hidden
+                className="flex h-8 w-8 flex-none items-center justify-center rounded-full text-[12px] font-semibold text-white"
+                style={{
+                  backgroundImage:
+                    'linear-gradient(135deg, #14b8a6 0%, #2563eb 45%, #7c3aed 100%)',
+                }}
+              >
+                {initials}
+              </div>
+              <div className="min-w-0">
+                <div className="truncate text-[13px] font-medium capitalize text-ink">
+                  {displayName}
+                </div>
+                {email && (
+                  <div className="truncate text-[11px] text-ink-3">{email}</div>
+                )}
+              </div>
             </div>
-            <button
-              type="button"
-              onClick={logout}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full text-ink-3 hover:text-ink"
-              aria-label="Sign out"
-            >
-              <LogOut size={16} />
-            </button>
+            <div className="mt-2 flex items-center justify-between text-[11px] text-ink-3">
+              <span className="inline-flex items-center gap-1">
+                <span className="h-1.5 w-1.5 rounded-full bg-teal" />
+                Trial
+              </span>
+              <a
+                href="/settings/billing"
+                className="text-ink underline decoration-dotted underline-offset-4 hover:decoration-solid"
+              >
+                Upgrade
+              </a>
+            </div>
           </div>
         }
       />
 
-      <div className="mx-auto flex max-w-7xl">
-        <Sidebar items={MODULE_ITEMS} activeId={activeId} />
-        <main className={dense ? 'flex-1 px-6 py-6' : 'flex-1 px-8 py-10'}>
-          {children}
-        </main>
-      </div>
+      <main className="flex min-w-0 flex-1 flex-col">
+        <div className="sticky top-0 z-30 border-b border-line bg-bg/80 backdrop-blur">
+          <div className="flex items-center justify-between gap-4 px-6 py-3">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="text-[12px] text-ink-4">HireLoop</span>
+              <span className="text-[12px] text-ink-4">/</span>
+              <span className="truncate text-[13px] font-medium text-ink">
+                {crumbText}
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setPaletteOpen(true)}
+              className="hidden md:flex flex-1 max-w-md items-center gap-2 rounded-full border border-line bg-white px-3 py-1.5 text-[12.5px] text-ink-3 hover:text-ink"
+            >
+              <Search size={14} />
+              <span className="flex-1 text-left">
+                Search jobs, companies, stories…
+              </span>
+              <kbd className="rounded border border-line px-1.5 text-[10px] text-ink-4">
+                ⌘K
+              </kbd>
+            </button>
+
+            <div className="flex items-center gap-1.5">
+              {topbarActions ?? (
+                <a
+                  href="/pipeline"
+                  className="inline-flex items-center gap-1 rounded-lg border border-line-2 bg-white px-2.5 py-1.5 text-[12px] font-medium text-ink hover:bg-card"
+                >
+                  <Plus size={12} strokeWidth={2.2} />
+                  Add job
+                </a>
+              )}
+              <div className="mx-1 h-6 w-px bg-line" />
+              <button
+                type="button"
+                aria-label="Account"
+                className="flex items-center gap-2 rounded-lg px-2 py-1 hover:bg-card"
+              >
+                <div
+                  aria-hidden
+                  className="flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-semibold text-white"
+                  style={{
+                    backgroundImage:
+                      'linear-gradient(135deg, #14b8a6 0%, #2563eb 45%, #7c3aed 100%)',
+                  }}
+                >
+                  {initials}
+                </div>
+                <ChevronDown size={12} className="text-ink-3" strokeWidth={1.8} />
+              </button>
+              <button
+                type="button"
+                onClick={logout}
+                aria-label="Sign out"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink-3 hover:bg-card hover:text-ink"
+              >
+                <LogOut size={16} />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className={dense ? 'px-6 py-6' : 'px-8 py-10'}>{children}</div>
+      </main>
 
       {paletteOpen && <CommandPaletteStub onClose={() => setPaletteOpen(false)} />}
     </div>

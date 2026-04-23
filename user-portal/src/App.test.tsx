@@ -5,6 +5,6 @@ import App from './App';
 describe('App', () => {
   it('renders HireLoop', () => {
     render(<App />);
-    expect(screen.getByText(/HireLoop/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/HireLoop/i).length).toBeGreaterThan(0);
   });
 });

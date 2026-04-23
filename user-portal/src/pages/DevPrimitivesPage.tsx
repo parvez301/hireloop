@@ -17,7 +17,7 @@ import { GradientButton } from '../components/ui/GradientButton';
 import { Kanban } from '../components/ui/Kanban';
 import { ScoreRing } from '../components/ui/ScoreRing';
 import { SegmentedControl } from '../components/ui/SegmentedControl';
-import { Sidebar, type SidebarItem } from '../components/ui/Sidebar';
+import { Sidebar, type SidebarSection } from '../components/ui/Sidebar';
 import { SoftCard } from '../components/ui/SoftCard';
 import { Sparkline } from '../components/ui/Sparkline';
 import {
@@ -26,12 +26,17 @@ import {
   TextareaField,
 } from '../components/ui/InputField';
 
-const SIDEBAR_ITEMS: SidebarItem[] = [
-  { id: 'dashboard', label: 'Dashboard', href: '#', icon: LayoutDashboard },
-  { id: 'pipeline', label: 'Pipeline', href: '#', icon: BriefcaseBusiness, counter: 12 },
-  { id: 'scans', label: 'Scans', href: '#', icon: Search, counter: 3 },
-  { id: 'stories', label: 'Story bank', href: '#', icon: Sparkles },
-  { id: 'inbox', label: 'Inbox', href: '#', icon: Inbox, counter: '!' },
+const SIDEBAR_SECTIONS: SidebarSection[] = [
+  {
+    label: 'Workspace',
+    items: [
+      { id: 'dashboard', label: 'Dashboard', href: '#', icon: LayoutDashboard },
+      { id: 'pipeline', label: 'Pipeline', href: '#', icon: BriefcaseBusiness, counter: 12 },
+      { id: 'scans', label: 'Scans', href: '#', icon: Search, counter: 3 },
+      { id: 'stories', label: 'Story bank', href: '#', icon: Sparkles },
+      { id: 'inbox', label: 'Inbox', href: '#', icon: Inbox, counter: '!' },
+    ],
+  },
 ];
 
 type Stage = 'saved' | 'applied' | 'phone' | 'onsite' | 'offer';
@@ -57,7 +62,7 @@ export default function DevPrimitivesPage() {
         }
       />
       <div className="mx-auto flex max-w-6xl gap-8 px-6 py-8">
-        <Sidebar items={SIDEBAR_ITEMS} activeId="dashboard" />
+        <Sidebar sections={SIDEBAR_SECTIONS} activeId="dashboard" />
 
         <main className="flex-1 space-y-8">
           <section>
