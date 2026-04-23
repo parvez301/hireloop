@@ -49,7 +49,11 @@ async def extract_json(prompt: str, *, timeout_s: float = 8.0) -> dict[str, Any]
 
 
 def _claude_extract_text(msg: anthropic.types.Message) -> str:
-    return "".join(block.text for block in msg.content if getattr(block, "type", "") == "text")
+    parts: list[str] = []
+    for block in msg.content:
+        if isinstance(block, anthropic.types.TextBlock):
+            parts.append(block.text)
+    return "".join(parts)
 
 
 async def _claude_classify_intent(message: str) -> ClassifiedIntent:
@@ -110,7 +114,8 @@ async def _claude_extract_json(prompt: str, *, timeout_s: float = 8.0) -> dict[s
     raw = _claude_extract_text(msg).strip()
     raw = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw, flags=re.MULTILINE)
     try:
-        return json.loads(raw)
+        parsed: dict[str, Any] = json.loads(raw)
+        return parsed
     except json.JSONDecodeError as exc:
         raise LLMParseError(
             "Claude response was not valid JSON",

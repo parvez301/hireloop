@@ -64,7 +64,11 @@ async def _claude_score(prompt: str, timeout_s: float) -> str:
         return ""
     except anthropic.APIError:
         return ""
-    return "".join(block.text for block in msg.content if getattr(block, "type", "") == "text")
+    parts: list[str] = []
+    for block in msg.content:
+        if isinstance(block, anthropic.types.TextBlock):
+            parts.append(block.text)
+    return "".join(parts)
 
 
 async def _gemini_score(prompt: str, timeout_s: float) -> str:
