@@ -212,8 +212,10 @@ jobs:
               ("echo LLM_BRIDGE_IMAGE=" + $lb + " >> /etc/hireloop/bootstrap.env"),
               "set -a && source /etc/hireloop/bootstrap.env && set +a",
               "mkdir -p /opt/hireloop/claude-auth",
+              "docker image prune -af --filter \"until=24h\" || true",
               "docker compose -f /etc/hireloop/docker-compose.yml pull backend llm-bridge",
-              "docker compose -f /etc/hireloop/docker-compose.yml up -d"
+              "docker compose -f /etc/hireloop/docker-compose.yml up -d",
+              "docker image prune -af --filter \"until=1h\" || true"
             ]}')
           CMD_ID=$(aws ssm send-command --instance-ids "$IID" \
             --document-name AWS-RunShellScript \
