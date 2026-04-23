@@ -6,6 +6,9 @@ from hireloop.schemas.common import ORMModel, TimestampedORM
 
 
 class ProfileUpdate(ORMModel):
+    full_name: str | None = Field(default=None, max_length=200)
+    headline: str | None = Field(default=None, max_length=300)
+    current_location: str | None = Field(default=None, max_length=200)
     target_roles: list[str] | None = None
     target_locations: list[str] | None = None
     min_salary: int | None = Field(default=None, ge=0)
@@ -17,6 +20,9 @@ class ProfileUpdate(ORMModel):
 
 
 class ProfileResponse(TimestampedORM):
+    full_name: str | None
+    headline: str | None
+    current_location: str | None
     master_resume_md: str | None
     master_resume_s3: str | None
     parsed_resume_json: dict[str, Any] | None

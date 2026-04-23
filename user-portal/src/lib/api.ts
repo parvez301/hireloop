@@ -279,6 +279,9 @@ export type FeedbackResource =
 
 export interface Profile {
   user_id: string;
+  full_name: string | null;
+  headline: string | null;
+  current_location: string | null;
   master_resume_md: string | null;
   master_resume_s3: string | null;
   parsed_resume_json: Record<string, unknown> | null;

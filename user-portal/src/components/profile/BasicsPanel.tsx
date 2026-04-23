@@ -1,4 +1,7 @@
+import { useEffect, useState } from 'react';
+
 import { SoftCard } from '../ui/SoftCard';
+import { GradientButton } from '../ui/GradientButton';
 import { getUserEmail } from '../../lib/auth';
 import type { Profile } from '../../lib/api';
 
@@ -8,9 +11,36 @@ type Props = {
   onSave: (patch: Partial<Profile>) => void;
 };
 
-export function BasicsPanel({ profile }: Props) {
+const INPUT_CLS =
+  'mt-1.5 block w-full rounded-xl border border-line-2 bg-white px-3.5 py-2.5 text-[14px] text-ink placeholder:text-ink-4 focus:border-ink focus:outline-none focus:ring-4 focus:ring-black/5';
+const READONLY_CLS =
+  'flex-1 rounded-xl border border-line-2 bg-card px-3.5 py-2.5 text-[14px] text-ink';
+
+export function BasicsPanel({ profile, saving, onSave }: Props) {
   const email = getUserEmail() ?? '—';
-  const initials = (email.split('@')[0] ?? '??').slice(0, 2).toUpperCase();
+  const [fullName, setFullName] = useState(profile.full_name ?? '');
+  const [headline, setHeadline] = useState(profile.headline ?? '');
+  const [location, setLocation] = useState(profile.current_location ?? '');
+
+  useEffect(() => {
+    setFullName(profile.full_name ?? '');
+    setHeadline(profile.headline ?? '');
+    setLocation(profile.current_location ?? '');
+  }, [profile]);
+
+  const initials = (() => {
+    const source = fullName || email.split('@')[0] || '';
+    const parts = source.trim().split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return '??';
+  })();
+
+  const dirty =
+    fullName !== (profile.full_name ?? '') ||
+    headline !== (profile.headline ?? '') ||
+    location !== (profile.current_location ?? '');
+
   const memberSince = (() => {
     try {
       return new Date(profile.created_at).toLocaleDateString(undefined, {
@@ -53,7 +83,7 @@ export function BasicsPanel({ profile }: Props) {
             </div>
             <div className="md:mt-3">
               <div className="text-[13px] font-semibold text-ink">
-                {email.split('@')[0]}
+                {fullName || email.split('@')[0]}
               </div>
               <div className="truncate text-[11.5px] text-ink-3">{email}</div>
               <div className="mt-2 inline-flex items-center gap-1 rounded-full border border-line bg-white px-2 py-0.5 text-[10.5px] text-ink-2">
@@ -62,18 +92,25 @@ export function BasicsPanel({ profile }: Props) {
             </div>
           </div>
 
-          <div className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <label className="block text-[12px] font-medium text-ink-2">
+                Full name
+              </label>
+              <input
+                className={INPUT_CLS}
+                placeholder="Ava Chen"
+                value={fullName}
+                onChange={(event) => setFullName(event.target.value)}
+              />
+            </div>
             <div>
               <label className="block text-[12px] font-medium text-ink-2">
                 Email{' '}
                 <span className="font-normal text-ink-4">· verified</span>
               </label>
               <div className="mt-1.5 flex gap-2">
-                <input
-                  value={email}
-                  readOnly
-                  className="flex-1 rounded-xl border border-line-2 bg-card px-3.5 py-2.5 text-[14px] text-ink"
-                />
+                <input value={email} readOnly className={READONLY_CLS} />
                 <button
                   type="button"
                   disabled
@@ -86,15 +123,54 @@ export function BasicsPanel({ profile }: Props) {
             </div>
             <div>
               <label className="block text-[12px] font-medium text-ink-2">
-                Member since
+                Headline
               </label>
               <input
-                value={memberSince}
-                readOnly
-                className="mt-1.5 block w-full rounded-xl border border-line-2 bg-card px-3.5 py-2.5 text-[14px] text-ink"
+                className={INPUT_CLS}
+                placeholder="Senior Product Designer · Fintech, B2B SaaS"
+                value={headline}
+                onChange={(event) => setHeadline(event.target.value)}
               />
+              <p className="mt-1 text-[11.5px] text-ink-4">
+                Shown on every tailored resume header.
+              </p>
+            </div>
+            <div>
+              <label className="block text-[12px] font-medium text-ink-2">
+                Current location
+              </label>
+              <input
+                className={INPUT_CLS}
+                placeholder="New York, NY"
+                value={location}
+                onChange={(event) => setLocation(event.target.value)}
+              />
+              <p className="mt-1 text-[11.5px] text-ink-4">
+                Where you are today. Target locations live on the Target roles
+                tab.
+              </p>
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-[12px] font-medium text-ink-2">
+                Member since
+              </label>
+              <input value={memberSince} readOnly className={READONLY_CLS} />
             </div>
           </div>
+        </div>
+        <div className="mt-5 flex justify-end">
+          <GradientButton
+            disabled={saving || !dirty}
+            onClick={() =>
+              onSave({
+                full_name: fullName.trim() || null,
+                headline: headline.trim() || null,
+                current_location: location.trim() || null,
+              })
+            }
+          >
+            {saving ? 'Saving…' : dirty ? 'Save basics' : 'Saved'}
+          </GradientButton>
         </div>
       </SoftCard>
 

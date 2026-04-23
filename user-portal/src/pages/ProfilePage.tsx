@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { SoftCard } from '../components/ui/SoftCard';
 import { WorkspaceShell } from '../components/workspace/WorkspaceShell';
@@ -87,6 +87,8 @@ export default function ProfilePage({ tab: override }: Props = {}) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState<Partial<Profile>>({});
+  const pendingTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -118,10 +120,21 @@ export default function ProfilePage({ tab: override }: Props = {}) {
     try {
       const response = await api.profile.update(patch);
       setProfile(response.data);
+      setDirty({});
     } catch (caught) {
       setError((caught as Error).message);
     } finally {
       setSaving(false);
+    }
+  }
+
+  function saveNow() {
+    if (pendingTimerRef.current !== null) {
+      window.clearTimeout(pendingTimerRef.current);
+      pendingTimerRef.current = null;
+    }
+    if (Object.keys(dirty).length > 0) {
+      void saveProfile(dirty);
     }
   }
 
@@ -133,8 +146,40 @@ export default function ProfilePage({ tab: override }: Props = {}) {
     [profile],
   );
 
+  const hasPendingChanges = Object.keys(dirty).length > 0;
+
   return (
-    <WorkspaceShell crumb="Profile">
+    <WorkspaceShell
+      crumb="Profile"
+      topbarActions={
+        <>
+          <button
+            type="button"
+            className="inline-flex items-center rounded-lg border border-line-2 bg-white px-2.5 py-1.5 text-[12px] font-medium text-ink hover:bg-card"
+          >
+            Preview as recruiter sees
+          </button>
+          <button
+            type="button"
+            onClick={saveNow}
+            disabled={saving || !hasPendingChanges}
+            style={{
+              backgroundImage: hasPendingChanges
+                ? 'linear-gradient(135deg, #0f766e 0%, #1d4ed8 45%, #6d28d9 100%)'
+                : undefined,
+            }}
+            className={
+              'inline-flex items-center rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-opacity ' +
+              (hasPendingChanges
+                ? 'text-white shadow-[0_8px_20px_-12px_rgba(37,99,235,0.55),inset_0_1px_0_rgba(255,255,255,0.15)] disabled:opacity-60'
+                : 'border border-line-2 bg-white text-ink-3')
+            }
+          >
+            {saving ? 'Saving…' : hasPendingChanges ? 'Save changes' : 'Saved'}
+          </button>
+        </>
+      }
+    >
       <div className="mx-auto max-w-[1100px]">
         <div className="flex flex-wrap items-start justify-between gap-6">
           <div className="flex items-start gap-4">

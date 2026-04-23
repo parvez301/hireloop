@@ -22,6 +22,9 @@ class Profile(Base, UUIDPKMixin, TimestampMixin):
         unique=True,
         index=True,
     )
+    full_name: Mapped[str | None] = mapped_column(String(200))
+    headline: Mapped[str | None] = mapped_column(String(300))
+    current_location: Mapped[str | None] = mapped_column(String(200))
     master_resume_md: Mapped[str | None] = mapped_column(Text)
     master_resume_s3: Mapped[str | None] = mapped_column(String(500))
     parsed_resume_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)

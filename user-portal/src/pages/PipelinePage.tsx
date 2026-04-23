@@ -4,9 +4,16 @@ import { Plus } from 'lucide-react';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Kanban, type KanbanColumn } from '../components/ui/Kanban';
 import { WorkspaceShell } from '../components/workspace/WorkspaceShell';
-import { api, type Application } from '../lib/api';
+import { api, type Application, type JobDetailResponse } from '../lib/api';
 
 type Stage = Application['status'];
+
+type JobEnrichment = {
+  title: string;
+  company: string | null;
+  location: string | null;
+  grade: string | null;
+};
 
 const COLUMNS: KanbanColumn<Stage>[] = [
   { id: 'saved', label: 'Saved' },
@@ -43,6 +50,32 @@ function initialsOf(text: string | null): string {
   return trimmed.charAt(0).toUpperCase();
 }
 
+const GRADE_STYLES: Record<string, { bg: string; fg: string }> = {
+  A: { bg: '#d1fae5', fg: '#065f46' },
+  'A-': { bg: '#dbeafe', fg: '#1e40af' },
+  'B+': { bg: '#e0e7ff', fg: '#3730a3' },
+  B: { bg: '#f3e8ff', fg: '#6b21a8' },
+  'B-': { bg: '#fdf4ff', fg: '#86198f' },
+  C: { bg: '#fef3c7', fg: '#854d0e' },
+  D: { bg: '#fee2e2', fg: '#991b1b' },
+  F: { bg: '#fee2e2', fg: '#7f1d1d' },
+};
+
+function GradeChip({ grade }: { grade: string }) {
+  const style = GRADE_STYLES[grade.toUpperCase()] ?? {
+    bg: '#ece9e2',
+    fg: '#6b6966',
+  };
+  return (
+    <span
+      className="inline-flex h-4 min-w-[22px] items-center justify-center rounded px-1 text-[10px] font-bold tabular-nums"
+      style={{ backgroundColor: style.bg, color: style.fg }}
+    >
+      {grade}
+    </span>
+  );
+}
+
 function relativeDate(iso: string): string {
   const delta = Date.now() - new Date(iso).getTime();
   const days = Math.round(delta / 86400000);
@@ -58,6 +91,7 @@ function relativeDate(iso: string): string {
 
 export default function PipelinePage() {
   const [apps, setApps] = useState<Application[]>([]);
+  const [jobInfo, setJobInfo] = useState<Record<string, JobEnrichment>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -66,6 +100,24 @@ export default function PipelinePage() {
     try {
       const response = await api.applications.list();
       setApps(response.data);
+      const unique = Array.from(new Set(response.data.map((app) => app.job_id)));
+      const enrichment: Record<string, JobEnrichment> = {};
+      await Promise.all(
+        unique.map(async (jobId) => {
+          try {
+            const result: { data: JobDetailResponse } = await api.jobs.get(jobId);
+            enrichment[jobId] = {
+              title: result.data.job.title,
+              company: result.data.job.company,
+              location: result.data.job.location,
+              grade: result.data.evaluation?.overall_grade ?? null,
+            };
+          } catch {
+            /* leave unenriched; card falls back to notes */
+          }
+        }),
+      );
+      setJobInfo(enrichment);
     } catch (caught) {
       setError((caught as Error).message);
     } finally {
@@ -165,11 +217,20 @@ export default function PipelinePage() {
               onStageChange={handleStageChange}
               emptyHint="Drop cards here"
               renderCard={(item) => {
-                const label = item.notes?.trim() || 'Saved role';
-                const monogram = initialsOf(label);
+                const info = jobInfo[item.job_id];
+                const title = info?.title ?? item.notes?.trim() ?? 'Saved role';
+                const company = info?.company ?? null;
+                const meta = [company, relativeDate(item.updated_at)]
+                  .filter(Boolean)
+                  .join(' · ');
+                const monogram = initialsOf(company ?? title);
                 const color = monogramColor(item.job_id);
+                const grade = info?.grade ?? null;
                 return (
-                  <div className="flex items-start gap-2.5">
+                  <a
+                    href={`/jobs/${item.job_id}`}
+                    className="flex items-start gap-2.5"
+                  >
                     <div
                       aria-hidden
                       className="flex h-10 w-10 flex-none items-center justify-center rounded-lg text-[14px] font-bold text-white"
@@ -178,20 +239,25 @@ export default function PipelinePage() {
                       {monogram}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="line-clamp-2 text-[14px] font-semibold leading-[1.3] text-ink">
-                        {label}
+                      <div className="flex items-start gap-1.5">
+                        <div className="line-clamp-2 flex-1 text-[14px] font-semibold leading-[1.3] text-ink">
+                          {title}
+                        </div>
+                        {grade && <GradeChip grade={grade} />}
                       </div>
-                      <div className="mt-1 text-[12px] leading-snug text-ink-3">
-                        {relativeDate(item.updated_at)}
-                      </div>
-                      <a
-                        href={`/jobs/${item.job_id}`}
-                        className="mt-2 inline-block text-[11px] text-cobalt hover:underline"
-                      >
-                        View job →
-                      </a>
+                      {meta && (
+                        <div className="mt-1 truncate text-[12px] leading-snug text-ink-3">
+                          {company && (
+                            <span className="font-medium text-ink-2">
+                              {company}
+                            </span>
+                          )}
+                          {company && ' · '}
+                          {relativeDate(item.updated_at)}
+                        </div>
+                      )}
                     </div>
-                  </div>
+                  </a>
                 );
               }}
             />
