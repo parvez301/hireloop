@@ -1,4 +1,8 @@
-"""L1 relevance scorer — Gemini Flash, one call per job."""
+"""L1 relevance scorer — fast-tier LLM, one call per job.
+
+Uses `fast_client` so the provider (Claude-haiku via bridge vs. Gemini) is
+picked by `settings.fast_llm_provider`.
+"""
 
 from __future__ import annotations
 
@@ -6,7 +10,11 @@ import asyncio
 import re
 from typing import Any
 
+import anthropic
+
+from hireloop.config import get_settings
 from hireloop.core.llm import gemini_client
+from hireloop.core.llm.anthropic_client import get_batch_client
 from hireloop.models.job import Job
 
 
@@ -35,6 +43,44 @@ def _build_prompt(job: Job, profile_summary: dict[str, Any]) -> str:
     )
 
 
+async def _claude_score(prompt: str, timeout_s: float) -> str:
+    settings = get_settings()
+    client = get_batch_client()
+    try:
+        msg = await asyncio.wait_for(
+            client.messages.create(
+                model=settings.claude_haiku_model,
+                max_tokens=8,
+                temperature=0,
+                system=(
+                    "You are a numeric scorer. Output exactly one decimal between 0 and 1 "
+                    "and nothing else."
+                ),
+                messages=[{"role": "user", "content": prompt}],
+            ),
+            timeout=timeout_s,
+        )
+    except (TimeoutError, asyncio.TimeoutError):
+        return ""
+    except anthropic.APIError:
+        return ""
+    return "".join(
+        block.text for block in msg.content if getattr(block, "type", "") == "text"
+    )
+
+
+async def _gemini_score(prompt: str, timeout_s: float) -> str:
+    model = gemini_client._get_model()
+    try:
+        response = await asyncio.wait_for(
+            model.generate_content_async(prompt),
+            timeout=timeout_s,
+        )
+    except Exception:
+        return ""
+    return getattr(response, "text", "") or ""
+
+
 async def score_relevance(
     *,
     job: Job,
@@ -43,16 +89,12 @@ async def score_relevance(
 ) -> float:
     """Return a 0.0–1.0 relevance score. 0.0 on any error."""
     prompt = _build_prompt(job, profile_summary)
-    model = gemini_client._get_model()
-    try:
-        response = await asyncio.wait_for(
-            model.generate_content_async(prompt),
-            timeout=timeout_s,
-        )
-    except Exception:
-        return 0.0
-
-    raw = getattr(response, "text", "") or ""
+    provider = get_settings().fast_llm_provider.lower()
+    raw = (
+        await _gemini_score(prompt, timeout_s)
+        if provider == "gemini"
+        else await _claude_score(prompt, timeout_s)
+    )
     match = re.search(r"-?\d+(?:\.\d+)?", raw)
     if not match:
         return 0.0

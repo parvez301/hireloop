@@ -11,7 +11,7 @@ import httpx
 from bs4 import BeautifulSoup
 
 from hireloop.core.llm.errors import LLMError
-from hireloop.core.llm.gemini_client import extract_json
+from hireloop.core.llm.fast_client import extract_json
 
 
 class JobParseError(Exception):

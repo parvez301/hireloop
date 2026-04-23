@@ -16,6 +16,10 @@ os.environ.setdefault("ENVIRONMENT", "test")
 # active. Production default is `custom`; tests that exercise the custom flow
 # set AUTH_MODE themselves.
 os.environ.setdefault("AUTH_MODE", "cognito")
+# Pin the fast-LLM dispatcher to Gemini for tests — the suite mocks
+# `fake_gemini` + `respx`ed Claude at different layers. Tests that want the
+# Claude path can set FAST_LLM_PROVIDER=claude inline.
+os.environ.setdefault("FAST_LLM_PROVIDER", "gemini")
 
 _backend_root = Path(__file__).resolve().parent.parent
 _dotenv = _backend_root / ".env"

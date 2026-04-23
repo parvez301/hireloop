@@ -68,7 +68,13 @@ class Settings(BaseSettings):
     google_api_key: str = ""
     # Provider model IDs — confirm against Anthropic / Google docs when upgrading.
     claude_model: str = "claude-sonnet-4-6"
+    claude_haiku_model: str = "claude-haiku-4-5-20251001"
     gemini_model: str = "gemini-2.0-flash"
+    # "claude" routes fast-tier calls (L0 classifier, structured extraction,
+    # scanner relevance) through the Anthropic SDK (bridge-compatible).
+    # "gemini" keeps the legacy Google path. Default is "claude" so the
+    # product works without GOOGLE_API_KEY billing.
+    fast_llm_provider: str = "claude"
     enable_prompt_caching: bool = True
     llm_classifier_timeout_s: float = 3.0
     llm_evaluation_timeout_s: float = 60.0
