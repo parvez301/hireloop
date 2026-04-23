@@ -63,8 +63,15 @@ class SesEmailSender:
     """AWS SES transport. Requires the sender identity verified in SES and
     the caller's IAM role granted ses:SendEmail on it."""
 
-    def __init__(self, *, from_addr: str, from_name: str) -> None:
+    def __init__(
+        self,
+        *,
+        from_addr: str,
+        from_name: str,
+        configuration_set: str | None = None,
+    ) -> None:
         self._from = f"{from_name} <{from_addr}>" if from_name else from_addr
+        self._configuration_set = configuration_set or None
         self._client: Any | None = None
 
     def _get_client(self) -> Any:
@@ -79,16 +86,23 @@ class SesEmailSender:
         body: dict[str, Any] = {"Text": {"Data": message.body_text, "Charset": "UTF-8"}}
         if message.body_html:
             body["Html"] = {"Data": message.body_html, "Charset": "UTF-8"}
-        await asyncio.to_thread(
-            client.send_email,
-            Source=self._from,
-            Destination={"ToAddresses": [message.to]},
-            Message={
+        kwargs: dict[str, Any] = {
+            "Source": self._from,
+            "Destination": {"ToAddresses": [message.to]},
+            "Message": {
                 "Subject": {"Data": message.subject, "Charset": "UTF-8"},
                 "Body": body,
             },
+        }
+        if self._configuration_set:
+            kwargs["ConfigurationSetName"] = self._configuration_set
+        await asyncio.to_thread(client.send_email, **kwargs)
+        log.info(
+            "email_sent_ses",
+            to=message.to,
+            subject=message.subject,
+            configuration_set=self._configuration_set,
         )
-        log.info("email_sent_ses", to=message.to, subject=message.subject)
 
 
 _sender: EmailSender | None = None
@@ -99,7 +113,9 @@ def _build_default_sender() -> EmailSender:
     provider = settings.email_provider.lower()
     if provider == "ses":
         return SesEmailSender(
-            from_addr=settings.email_from, from_name=settings.email_from_name
+            from_addr=settings.email_from,
+            from_name=settings.email_from_name,
+            configuration_set=settings.email_configuration_set or None,
         )
     return LogEmailSender()
 

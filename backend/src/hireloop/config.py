@@ -51,6 +51,11 @@ class Settings(BaseSettings):
     email_provider: str = "log"
     email_from: str = "no-reply@hireloop.xyz"
     email_from_name: str = "HireLoop"
+    # Optional SES configuration-set name — when set, send_email calls
+    # include ConfigurationSetName so bounces/complaints emit events to
+    # SNS and recipients are auto-suppressed. Required by AWS for prod
+    # access reviews above trivial volume.
+    email_configuration_set: str = ""
 
     # Dev-only internal endpoints (smoke-test harness) require this header
     # to match. Empty in non-dev environments blocks access. Set via

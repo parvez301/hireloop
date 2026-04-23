@@ -7,6 +7,8 @@ import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as ecr from "aws-cdk-lib/aws-ecr";
 import * as iam from "aws-cdk-lib/aws-iam";
+import * as ses from "aws-cdk-lib/aws-ses";
+import * as sns from "aws-cdk-lib/aws-sns";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as route53 from "aws-cdk-lib/aws-route53";
 import * as targets from "aws-cdk-lib/aws-route53-targets";
@@ -49,6 +51,13 @@ function buildApiEnv(scope: Construct, env: string, props: LambdaEnvContext): Re
     COGNITO_JWKS_URL: `https://cognito-idp.${region}.amazonaws.com/${props.userPoolId}/.well-known/jwks.json`,
     AWS_S3_BUCKET: props.assetsBucketName,
     DISABLE_PAYWALL: "false",
+    // Email transport. `ses` reaches verified recipients via AWS SES;
+    // `log` writes to CloudWatch (used in preview envs that don't have
+    // DKIM wired yet).
+    EMAIL_PROVIDER: "ses",
+    EMAIL_FROM: `no-reply@hireloop.xyz`,
+    EMAIL_FROM_NAME: "HireLoop",
+    EMAIL_CONFIGURATION_SET: `hireloop-${env}-transactional`,
     // Dev-only test harness secret — value read from Secrets Manager if
     // present, empty otherwise. The /_internal endpoints self-gate on
     // environment + this value so an empty string = blocked.
@@ -56,6 +65,7 @@ function buildApiEnv(scope: Construct, env: string, props: LambdaEnvContext): Re
       env === "dev"
         ? readJson(`hireloop/${env}/dev-internal-secret`, "value")
         : "",
+    FAST_LLM_PROVIDER: "claude",
   };
 }
 
@@ -168,15 +178,62 @@ export class AppStack extends cdk.Stack {
 
     // SES is opt-in per env (EMAIL_PROVIDER=ses). Permission is scoped to
     // the hireloop account's verified identities; sender identity is chosen
-    // at request time via the EMAIL_FROM env var.
+    // at request time via the EMAIL_FROM env var. The configuration set
+    // below forces every send through the bounce/complaint topic so SES
+    // production-access reviewers see real handling, not implicit Console-
+    // level suppression.
+    const emailEventsTopic = new sns.Topic(this, "EmailEventsTopic", {
+      topicName: `hireloop-${env}-email-events`,
+      displayName: `HireLoop ${env} email bounces & complaints`,
+    });
+
+    const emailConfigSet = new ses.CfnConfigurationSet(
+      this,
+      "EmailConfigurationSet",
+      {
+        name: `hireloop-${env}-transactional`,
+        sendingOptions: { sendingEnabled: true },
+        reputationOptions: { reputationMetricsEnabled: true },
+        suppressionOptions: {
+          suppressedReasons: ["BOUNCE", "COMPLAINT"],
+        },
+      },
+    );
+
+    new ses.CfnConfigurationSetEventDestination(
+      this,
+      "EmailEventsDestination",
+      {
+        configurationSetName: emailConfigSet.name!,
+        eventDestination: {
+          name: "to-sns",
+          enabled: true,
+          matchingEventTypes: ["BOUNCE", "COMPLAINT", "REJECT", "DELIVERY_DELAY"],
+          snsDestination: { topicArn: emailEventsTopic.topicArn },
+        },
+      },
+    );
+
     apiFn.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ["ses:SendEmail", "ses:SendRawEmail"],
         resources: [
           `arn:aws:ses:${this.region}:${this.account}:identity/*`,
+          `arn:aws:ses:${this.region}:${this.account}:configuration-set/${emailConfigSet.name}`,
         ],
       }),
     );
+
+    new cdk.CfnOutput(this, "EmailEventsTopicArn", {
+      value: emailEventsTopic.topicArn,
+      description:
+        "SNS topic receiving SES bounce/complaint events. Subscribe an email or Lambda to receive them.",
+    });
+    new cdk.CfnOutput(this, "EmailConfigurationSetName", {
+      value: emailConfigSet.name!,
+      description:
+        "Pass this as ConfigurationSetName on SES SendEmail calls to route events to SNS and enforce suppression.",
+    });
 
     // Migrations connect as the RDS master user because the per-env app user
     // is provisioned CRUD-only (no schema DDL) by the Data stack's DbBootstrap.
