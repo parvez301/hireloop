@@ -22,9 +22,7 @@ async def run_first_evaluation(
     user_id: UUID,
     parsed_job: ParsedJob,
 ) -> dict[str, Any]:
-    context = EvaluationContext(
-        user_id=user_id, session=db, usage=UsageEventService(db)
-    )
+    context = EvaluationContext(user_id=user_id, session=db, usage=UsageEventService(db))
     service = EvaluationService(context)
     evaluation = await service.evaluate_parsed(parsed_job)
 

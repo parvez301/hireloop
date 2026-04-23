@@ -32,8 +32,7 @@ _FAKE_INTERVIEW_PREP = json.dumps(
             for i in range(10)
         ],
         "red_flag_questions": [
-            {"question": f"Red flag {j}?", "what_to_listen_for": "On-call load"}
-            for j in range(5)
+            {"question": f"Red flag {j}?", "what_to_listen_for": "On-call load"} for j in range(5)
         ],
     }
 )

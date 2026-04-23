@@ -64,8 +64,10 @@ async def test_interview_prep_auto_populates_story_bank(
     factory = get_session_factory()
     async with factory() as session:
         stories = (
-            await session.execute(select(StarStory).where(StarStory.user_id == user_id))
-        ).scalars().all()
+            (await session.execute(select(StarStory).where(StarStory.user_id == user_id)))
+            .scalars()
+            .all()
+        )
         assert len(stories) >= 1
 
 

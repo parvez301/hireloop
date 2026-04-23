@@ -120,8 +120,10 @@ async def test_feedback_upsert_replaces_existing(seed_profile):
         )
         await session.commit()
         rows = (
-            await session.execute(select(Feedback).where(Feedback.resource_id == eval_id))
-        ).scalars().all()
+            (await session.execute(select(Feedback).where(Feedback.resource_id == eval_id)))
+            .scalars()
+            .all()
+        )
 
     assert len(rows) == 1
     assert rows[0].rating == 5

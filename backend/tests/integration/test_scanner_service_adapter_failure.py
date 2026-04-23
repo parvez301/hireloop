@@ -36,12 +36,12 @@ async def _user_id() -> UUID:
 @respx.mock
 async def test_scan_completes_when_one_adapter_fails(seed_profile) -> None:
     """Greenhouse works; Ashby returns 500 on every attempt; scan still finishes."""
-    respx.get(
-        "https://boards-api.greenhouse.io/v1/boards/stripe/jobs?content=true"
-    ).mock(return_value=Response(200, json=_GH))
-    respx.get(
-        re.compile(r"https://api\.ashbyhq\.com/posting-api/job-board/linear.*")
-    ).mock(return_value=Response(500, text="boom"))
+    respx.get("https://boards-api.greenhouse.io/v1/boards/stripe/jobs?content=true").mock(
+        return_value=Response(200, json=_GH)
+    )
+    respx.get(re.compile(r"https://api\.ashbyhq\.com/posting-api/job-board/linear.*")).mock(
+        return_value=Response(500, text="boom")
+    )
 
     uid = await _user_id()
     factory = get_session_factory()
@@ -71,7 +71,5 @@ async def test_scan_completes_when_one_adapter_fails(seed_profile) -> None:
     # Greenhouse returned 2 listings; one-adapter-fail doesn't kill the run
     assert outcome.jobs_found >= 2
     async with factory() as session:
-        reloaded = (
-            await session.execute(select(ScanRun).where(ScanRun.id == run_id))
-        ).scalar_one()
+        reloaded = (await session.execute(select(ScanRun).where(ScanRun.id == run_id))).scalar_one()
         assert reloaded.status == "completed"

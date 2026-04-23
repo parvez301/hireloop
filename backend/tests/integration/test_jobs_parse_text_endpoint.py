@@ -38,12 +38,15 @@ async def test_parse_text_happy_path(client: AsyncClient) -> None:
     fake_parsed.return_value.description_md = SAMPLE_JD
     fake_parsed.return_value.requirements_json = {"skills": ["Python", "AWS"]}
 
-    with patch(
-        "hireloop.integrations.cognito.CognitoJwtVerifier.verify",
-        new=AsyncMock(return_value=FAKE_CLAIMS),
-    ), patch(
-        "hireloop.api.jobs.parse_description",
-        new=fake_parsed,
+    with (
+        patch(
+            "hireloop.integrations.cognito.CognitoJwtVerifier.verify",
+            new=AsyncMock(return_value=FAKE_CLAIMS),
+        ),
+        patch(
+            "hireloop.api.jobs.parse_description",
+            new=fake_parsed,
+        ),
     ):
         await client.get("/api/v1/profile", headers={"Authorization": "Bearer fake"})
         response = await client.post(

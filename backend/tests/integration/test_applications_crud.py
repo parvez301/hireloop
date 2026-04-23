@@ -58,9 +58,7 @@ async def test_applications_crud_happy_path(auth_headers, seed_profile):
         "hireloop.integrations.cognito.CognitoJwtVerifier.verify",
         new=AsyncMock(return_value=FAKE_CLAIMS),
     ):
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             r1 = await client.post(
                 "/api/v1/applications",
                 json={"job_id": str(jid), "notes": "looks good"},
@@ -84,9 +82,7 @@ async def test_applications_crud_happy_path(auth_headers, seed_profile):
             assert r3.status_code == 200
             assert any(a["id"] == app_id for a in r3.json()["data"])
 
-            r4 = await client.delete(
-                f"/api/v1/applications/{app_id}", headers=auth_headers
-            )
+            r4 = await client.delete(f"/api/v1/applications/{app_id}", headers=auth_headers)
             assert r4.status_code == 204
 
 
@@ -99,9 +95,7 @@ async def test_applications_unique_on_job_per_user(auth_headers, seed_profile):
         "hireloop.integrations.cognito.CognitoJwtVerifier.verify",
         new=AsyncMock(return_value=FAKE_CLAIMS),
     ):
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             r1 = await client.post(
                 "/api/v1/applications",
                 json={"job_id": str(jid)},
@@ -126,9 +120,7 @@ async def test_applications_survive_expired_trial(auth_headers, seed_profile):
     uid = await _uid()
     async with factory() as session:
         sub = (
-            await session.execute(
-                select(Subscription).where(Subscription.user_id == uid)
-            )
+            await session.execute(select(Subscription).where(Subscription.user_id == uid))
         ).scalar_one_or_none()
         if sub is None:
             sub = Subscription(user_id=uid, plan="trial", status="active")
@@ -156,9 +148,7 @@ async def test_applications_survive_expired_trial(auth_headers, seed_profile):
     finally:
         async with factory() as session:
             sub = (
-                await session.execute(
-                    select(Subscription).where(Subscription.user_id == uid)
-                )
+                await session.execute(select(Subscription).where(Subscription.user_id == uid))
             ).scalar_one_or_none()
             if sub is not None:
                 sub.trial_ends_at = datetime.now(UTC) + timedelta(days=30)

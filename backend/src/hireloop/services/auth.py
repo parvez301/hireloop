@@ -20,10 +20,9 @@ from uuid import UUID, uuid4
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from hireloop.db import get_session_factory
-
 from hireloop.api.errors import AppError
 from hireloop.config import Settings, get_settings
+from hireloop.db import get_session_factory
 from hireloop.models.auth import (
     AuthRefreshToken,
     EmailVerificationCode,
@@ -49,7 +48,6 @@ from hireloop.services.tokens import (
     issue_refresh_token,
     revoke_refresh_token,
 )
-
 
 # ---------------------------------------------------------------------------
 # Existing claims-unpacker (Cognito-compatible shape) — don't break callers.
@@ -133,14 +131,10 @@ async def _issue_session(
     refresh = await issue_refresh_token(
         db, user_id=user.id, user_agent=user_agent, ip=ip, settings=settings
     )
-    return AuthSession(
-        id_token=access_token, refresh_token=refresh, expires_in=expires_in
-    )
+    return AuthSession(id_token=access_token, refresh_token=refresh, expires_in=expires_in)
 
 
-async def _latest_live_code(
-    db: AsyncSession, user_id: UUID
-) -> EmailVerificationCode | None:
+async def _latest_live_code(db: AsyncSession, user_id: UUID) -> EmailVerificationCode | None:
     stmt = (
         select(EmailVerificationCode)
         .where(
@@ -233,9 +227,7 @@ async def login(
         raise AppError(403, "EMAIL_UNVERIFIED", "Verify your email to continue")
     if needs_rehash(user.password_hash):
         user.password_hash = hash_password(password)
-    return await _issue_session(
-        db, user, user_agent=user_agent, ip=ip, settings=s
-    )
+    return await _issue_session(db, user, user_agent=user_agent, ip=ip, settings=s)
 
 
 async def verify_email(
@@ -259,9 +251,7 @@ async def verify_email(
     if row.expires_at <= _now():
         raise AppError(400, "CODE_EXPIRED", "That code has expired")
     if row.attempts >= CODE_MAX_ATTEMPTS:
-        raise AppError(
-            429, "TOO_MANY_ATTEMPTS", "Too many attempts — request a new code"
-        )
+        raise AppError(429, "TOO_MANY_ATTEMPTS", "Too many attempts — request a new code")
     if hash_secret(code) != row.code_hash:
         # Persist the attempt bump in a standalone transaction so the outer
         # request-scoped rollback (triggered by AppError below) can't undo it.
@@ -277,9 +267,7 @@ async def verify_email(
     row.consumed_at = _now()
     user.email_verified_at = _now()
     await db.flush()
-    return await _issue_session(
-        db, user, user_agent=user_agent, ip=ip, settings=s
-    )
+    return await _issue_session(db, user, user_agent=user_agent, ip=ip, settings=s)
 
 
 async def resend_code(
@@ -348,9 +336,7 @@ async def reset_password(
     if row.expires_at <= _now():
         raise AppError(400, "TOKEN_EXPIRED", "Reset link has expired")
 
-    user = (
-        await db.execute(select(User).where(User.id == row.user_id))
-    ).scalar_one_or_none()
+    user = (await db.execute(select(User).where(User.id == row.user_id))).scalar_one_or_none()
     if user is None:
         raise invalid
 
@@ -363,9 +349,7 @@ async def reset_password(
         user.email_verified_at = _now()
     row.consumed_at = _now()
     await db.flush()
-    return await _issue_session(
-        db, user, user_agent=user_agent, ip=ip, settings=s
-    )
+    return await _issue_session(db, user, user_agent=user_agent, ip=ip, settings=s)
 
 
 async def refresh(
@@ -382,9 +366,7 @@ async def refresh(
     if row is None or row.revoked_at is not None or row.expires_at <= _now():
         raise invalid
 
-    user = (
-        await db.execute(select(User).where(User.id == row.user_id))
-    ).scalar_one_or_none()
+    user = (await db.execute(select(User).where(User.id == row.user_id))).scalar_one_or_none()
     if user is None:
         raise invalid
 

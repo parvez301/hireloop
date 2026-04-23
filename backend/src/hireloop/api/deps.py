@@ -101,9 +101,7 @@ def get_active_verifier() -> CognitoJwtVerifier | JwtVerifier:
 
 
 async def get_auth_user(
-    verifier: Annotated[
-        CognitoJwtVerifier | JwtVerifier, Depends(get_active_verifier)
-    ],
+    verifier: Annotated[CognitoJwtVerifier | JwtVerifier, Depends(get_active_verifier)],
     authorization: Annotated[str | None, Header()] = None,
 ) -> AuthUser:
     if not authorization or not authorization.lower().startswith("bearer "):

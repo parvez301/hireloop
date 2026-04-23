@@ -67,9 +67,7 @@ async def me(user: CurrentDbUser, db: DbSession) -> Envelope[UserResponse]:
     response_model=Envelope[SignupResponse],
     status_code=status.HTTP_201_CREATED,
 )
-async def signup_endpoint(
-    body: SignupRequest, db: DbSession
-) -> Envelope[SignupResponse]:
+async def signup_endpoint(body: SignupRequest, db: DbSession) -> Envelope[SignupResponse]:
     user_id = await signup(
         db,
         first_name=body.first_name,
@@ -106,9 +104,7 @@ async def verify_email_endpoint(
     body: VerifyEmailRequest, request: Request, db: DbSession
 ) -> Envelope[SessionResponse]:
     ua, ip = _client_meta(request)
-    session = await verify_email(
-        db, email=body.email, code=body.code, user_agent=ua, ip=ip
-    )
+    session = await verify_email(db, email=body.email, code=body.code, user_agent=ua, ip=ip)
     return Envelope(
         data=SessionResponse(
             idToken=session.id_token,
@@ -125,9 +121,7 @@ async def resend_code_endpoint(body: ResendCodeRequest, db: DbSession) -> Respon
 
 
 @router.post("/forgot", status_code=status.HTTP_204_NO_CONTENT)
-async def forgot_password_endpoint(
-    body: ForgotPasswordRequest, db: DbSession
-) -> Response:
+async def forgot_password_endpoint(body: ForgotPasswordRequest, db: DbSession) -> Response:
     await forgot_password(db, email=body.email)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -150,14 +144,10 @@ async def reset_password_endpoint(
 
 
 @router.post("/refresh", response_model=Envelope[RefreshResponse])
-async def refresh_endpoint(
-    body: RefreshRequest, db: DbSession
-) -> Envelope[RefreshResponse]:
+async def refresh_endpoint(body: RefreshRequest, db: DbSession) -> Envelope[RefreshResponse]:
     refreshed = await refresh(db, refresh_token=body.refresh_token)
     return Envelope(
-        data=RefreshResponse(
-            idToken=refreshed.id_token, expiresIn=refreshed.expires_in
-        )
+        data=RefreshResponse(idToken=refreshed.id_token, expiresIn=refreshed.expires_in)
     )
 
 

@@ -60,13 +60,11 @@ async def _claude_score(prompt: str, timeout_s: float) -> str:
             ),
             timeout=timeout_s,
         )
-    except (TimeoutError, asyncio.TimeoutError):
+    except TimeoutError:
         return ""
     except anthropic.APIError:
         return ""
-    return "".join(
-        block.text for block in msg.content if getattr(block, "type", "") == "text"
-    )
+    return "".join(block.text for block in msg.content if getattr(block, "type", "") == "text")
 
 
 async def _gemini_score(prompt: str, timeout_s: float) -> str:

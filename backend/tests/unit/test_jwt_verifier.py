@@ -11,7 +11,6 @@ from jose import jwt
 from hireloop.api.errors import AppError
 from hireloop.integrations.auth_jwt import JwtVerifier
 
-
 SECRET = "unit-test-signing-secret"
 ISSUER = "hireloop-test"
 AUDIENCE = "hireloop-users-test"

@@ -16,9 +16,7 @@ from tests.conftest import FAKE_CLAIMS
 async def _user():
     factory = get_session_factory()
     async with factory() as session:
-        r = await session.execute(
-            select(User).where(User.cognito_sub == FAKE_CLAIMS["sub"])
-        )
+        r = await session.execute(select(User).where(User.cognito_sub == FAKE_CLAIMS["sub"]))
         return r.scalar_one_or_none()
 
 
@@ -30,9 +28,7 @@ async def test_onboarding_done_seeds_default_scan_config():
 
     async with factory() as session:
         await session.execute(delete(ScanConfig).where(ScanConfig.user_id == user.id))
-        pr = await session.execute(
-            select(Profile).where(Profile.user_id == user.id)
-        )
+        pr = await session.execute(select(Profile).where(Profile.user_id == user.id))
         profile = pr.scalar_one_or_none()
         if profile is None:
             profile = Profile(user_id=user.id, onboarding_state="preferences")
@@ -45,9 +41,7 @@ async def test_onboarding_done_seeds_default_scan_config():
         await session.commit()
 
     async with factory() as session:
-        pr = await session.execute(
-            select(Profile).where(Profile.user_id == user.id)
-        )
+        pr = await session.execute(select(Profile).where(Profile.user_id == user.id))
         profile = pr.scalar_one()
         await update_profile(
             session,

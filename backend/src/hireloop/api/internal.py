@@ -57,12 +57,8 @@ async def ensure_smoke_user(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-async def _upsert_smoke_user(
-    db: AsyncSession, *, email: str, password: str
-) -> User:
-    existing = (
-        await db.execute(select(User).where(User.email == email))
-    ).scalar_one_or_none()
+async def _upsert_smoke_user(db: AsyncSession, *, email: str, password: str) -> User:
+    existing = (await db.execute(select(User).where(User.email == email))).scalar_one_or_none()
     password_hash = hash_password(password)
     now = datetime.now(UTC)
     if existing is not None:

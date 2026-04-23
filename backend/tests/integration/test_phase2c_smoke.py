@@ -41,13 +41,11 @@ from tests.fixtures.fake_gemini import fake_gemini
 
 _GH = json.loads(
     (
-        Path(__file__).parent.parent
-        / "fixtures"
-        / "boards"
-        / "greenhouse"
-        / "stripe.json"
+        Path(__file__).parent.parent / "fixtures" / "boards" / "greenhouse" / "stripe.json"
     ).read_text()
 )
+
+
 async def _fake_extract_json(prompt: str, timeout_s: float = 10.0) -> dict[str, Any]:
     """Avoid Gemini JSON extraction colliding with relevance-score stubs."""
     marker = "Job posting:\n"
@@ -129,8 +127,10 @@ async def test_phase2c_smoke_scan_batch_pipeline(auth_headers, seed_profile):
 
     async with factory() as session:
         configs = (
-            await session.execute(select(ScanConfig).where(ScanConfig.user_id == user_id))
-        ).scalars().all()
+            (await session.execute(select(ScanConfig).where(ScanConfig.user_id == user_id)))
+            .scalars()
+            .all()
+        )
         assert len(configs) == 1
         config = configs[0]
         assert len(config.companies) == 15
@@ -156,9 +156,7 @@ async def test_phase2c_smoke_scan_batch_pipeline(auth_headers, seed_profile):
 
     async with factory() as session:
         svc = BatchService(session)
-        job_ids = await svc.resolve_job_ids_from_scan(
-            user_id=user_id, scan_run_id=scan_run_id
-        )
+        job_ids = await svc.resolve_job_ids_from_scan(user_id=user_id, scan_run_id=scan_run_id)
         batch_run = await svc.start_batch(
             user_id=user_id,
             job_ids=job_ids,
@@ -187,9 +185,7 @@ async def test_phase2c_smoke_scan_batch_pipeline(auth_headers, seed_profile):
         assert b.status == "completed"
         assert b.l2_evaluated >= 1
         first_eval = (
-            await session.execute(
-                select(Evaluation).where(Evaluation.user_id == user_id).limit(1)
-            )
+            await session.execute(select(Evaluation).where(Evaluation.user_id == user_id).limit(1))
         ).scalar_one()
         job_id = first_eval.job_id
 

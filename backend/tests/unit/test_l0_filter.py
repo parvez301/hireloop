@@ -66,9 +66,7 @@ def test_passes_when_salary_not_posted() -> None:
 
 
 def test_passes_when_no_min_salary_set() -> None:
-    passes, reason = l0_filter(
-        _job(salary_min=80000, salary_max=90000), _profile(min_salary=None)
-    )
+    passes, reason = l0_filter(_job(salary_min=80000, salary_max=90000), _profile(min_salary=None))
     assert passes is True
 
 

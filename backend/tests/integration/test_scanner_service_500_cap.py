@@ -43,9 +43,9 @@ async def _user_id() -> UUID:
 @pytest.mark.asyncio
 @respx.mock
 async def test_scan_truncates_at_500(seed_profile) -> None:
-    respx.get(
-        "https://boards-api.greenhouse.io/v1/boards/huge/jobs?content=true"
-    ).mock(return_value=Response(200, json=_fake_greenhouse_with_n_listings(600)))
+    respx.get("https://boards-api.greenhouse.io/v1/boards/huge/jobs?content=true").mock(
+        return_value=Response(200, json=_fake_greenhouse_with_n_listings(600))
+    )
 
     uid = await _user_id()
     factory = get_session_factory()
@@ -53,9 +53,7 @@ async def test_scan_truncates_at_500(seed_profile) -> None:
         config = ScanConfig(
             user_id=uid,
             name="Huge",
-            companies=[
-                {"name": "Huge", "platform": "greenhouse", "board_slug": "huge"}
-            ],
+            companies=[{"name": "Huge", "platform": "greenhouse", "board_slug": "huge"}],
             schedule="manual",
             is_active=True,
         )

@@ -113,8 +113,7 @@ async def test_render_pdf_with_unicode(_s3_mock: object) -> None:
 async def test_render_pdf_multi_page(_s3_mock: object) -> None:
     # Build markdown with enough content to span 2+ pages
     big_md = "# Multi-page CV\n\n" + "\n\n".join(
-        f"## Section {i}\n\n" + ("This is a filler paragraph. " * 40)
-        for i in range(20)
+        f"## Section {i}\n\n" + ("This is a filler paragraph. " * 40) for i in range(20)
     )
     result = await render_pdf(
         markdown=big_md,

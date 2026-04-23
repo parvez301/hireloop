@@ -25,9 +25,7 @@ async def _primary_user_id():
 
 
 @pytest.mark.asyncio
-async def test_build_interview_prep_tool_returns_card(
-    seed_profile, seeded_evaluation_for_user_a
-):
+async def test_build_interview_prep_tool_returns_card(seed_profile, seeded_evaluation_for_user_a):
     from sqlalchemy import delete
 
     from hireloop.models.interview_prep import InterviewPrep

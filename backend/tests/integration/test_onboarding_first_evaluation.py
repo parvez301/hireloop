@@ -43,15 +43,19 @@ async def test_first_evaluation_text_input_persists_and_returns_envelope(
         }
     )
 
-    with patch(
-        "hireloop.integrations.cognito.CognitoJwtVerifier.verify",
-        new=AsyncMock(return_value=FAKE_CLAIMS),
-    ), patch(
-        "hireloop.api.onboarding.parse_description",
-        new=fake_parsed,
-    ), patch(
-        "hireloop.api.onboarding.run_first_evaluation",
-        new=fake_eval,
+    with (
+        patch(
+            "hireloop.integrations.cognito.CognitoJwtVerifier.verify",
+            new=AsyncMock(return_value=FAKE_CLAIMS),
+        ),
+        patch(
+            "hireloop.api.onboarding.parse_description",
+            new=fake_parsed,
+        ),
+        patch(
+            "hireloop.api.onboarding.run_first_evaluation",
+            new=fake_eval,
+        ),
     ):
         # First, give this user a resume so the endpoint doesn't 409.
         await client.post(

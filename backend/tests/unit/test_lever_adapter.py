@@ -9,9 +9,7 @@ from httpx import Response
 from hireloop.core.scanner.adapters.base import BoardAdapterError
 from hireloop.core.scanner.adapters.lever import LeverAdapter
 
-_FIXTURE = (
-    Path(__file__).parent.parent / "fixtures" / "boards" / "lever" / "shopify.json"
-)
+_FIXTURE = Path(__file__).parent.parent / "fixtures" / "boards" / "lever" / "shopify.json"
 
 
 @pytest.mark.asyncio

@@ -21,9 +21,7 @@ async def get_job(
     user: CurrentDbUser,
     session: DbSession,
 ) -> dict[str, Any]:
-    job = (
-        await session.execute(select(Job).where(Job.id == job_id))
-    ).scalar_one_or_none()
+    job = (await session.execute(select(Job).where(Job.id == job_id))).scalar_one_or_none()
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
 
@@ -52,9 +50,7 @@ async def get_job(
                 "description_md": job.description_md,
                 "requirements_json": job.requirements_json,
                 "source": job.source,
-                "discovered_at": job.discovered_at.isoformat()
-                if job.discovered_at
-                else None,
+                "discovered_at": job.discovered_at.isoformat() if job.discovered_at else None,
             },
             "evaluation": (
                 {

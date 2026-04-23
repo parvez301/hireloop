@@ -27,9 +27,7 @@ _ASHBY = json.loads(
     (Path(__file__).parent.parent / "fixtures" / "boards" / "ashby" / "linear.json").read_text()
 )
 _LEVER = json.loads(
-    (
-        Path(__file__).parent.parent / "fixtures" / "boards" / "lever" / "shopify.json"
-    ).read_text()
+    (Path(__file__).parent.parent / "fixtures" / "boards" / "lever" / "shopify.json").read_text()
 )
 
 
@@ -53,12 +51,12 @@ async def _get_user_id() -> UUID:
 @pytest.mark.asyncio
 @respx.mock
 async def test_scanner_service_happy_path_all_three_platforms(seed_profile) -> None:
-    respx.get(
-        "https://boards-api.greenhouse.io/v1/boards/stripe/jobs?content=true"
-    ).mock(return_value=Response(200, json=_GH))
-    respx.get(
-        re.compile(r"https://api\.ashbyhq\.com/posting-api/job-board/linear.*")
-    ).mock(return_value=Response(200, json=_ASHBY))
+    respx.get("https://boards-api.greenhouse.io/v1/boards/stripe/jobs?content=true").mock(
+        return_value=Response(200, json=_GH)
+    )
+    respx.get(re.compile(r"https://api\.ashbyhq\.com/posting-api/job-board/linear.*")).mock(
+        return_value=Response(200, json=_ASHBY)
+    )
     respx.get(re.compile(r"https://api\.lever\.co/v0/postings/shopify.*")).mock(
         return_value=Response(200, json=_LEVER)
     )
@@ -95,16 +93,10 @@ async def test_scanner_service_happy_path_all_three_platforms(seed_profile) -> N
     assert outcome.truncated is False
 
     async with factory() as session:
-        reloaded = (
-            await session.execute(select(ScanRun).where(ScanRun.id == run_id))
-        ).scalar_one()
+        reloaded = (await session.execute(select(ScanRun).where(ScanRun.id == run_id))).scalar_one()
         assert reloaded.status == "completed"
         results = (
-            (
-                await session.execute(
-                    select(ScanResult).where(ScanResult.scan_run_id == run_id)
-                )
-            )
+            (await session.execute(select(ScanResult).where(ScanResult.scan_run_id == run_id)))
             .scalars()
             .all()
         )

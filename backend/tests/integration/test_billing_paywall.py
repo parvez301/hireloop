@@ -151,13 +151,11 @@ async def test_all_gated_endpoints_return_403_when_expired(
                 ]
                 for method, path, body in gated_calls:
                     resp = await client.request(method, path, json=body, headers=auth_headers)
-                    assert resp.status_code == 403, (
-                        f"{method} {path} returned {resp.status_code}, expected 403"
-                    )
+                    assert (
+                        resp.status_code == 403
+                    ), f"{method} {path} returned {resp.status_code}, expected 403"
                     err = resp.json()["error"]
-                    assert err["code"] == "TRIAL_EXPIRED", (
-                        f"{method} {path} returned {err['code']}"
-                    )
+                    assert err["code"] == "TRIAL_EXPIRED", f"{method} {path} returned {err['code']}"
     finally:
         await _restore_trial(user_id)
 

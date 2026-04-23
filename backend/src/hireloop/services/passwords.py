@@ -35,9 +35,7 @@ def hash_password(plaintext: str) -> str:
     to store as a single opaque string in `users.password_hash`.
     """
     if plaintext is None or len(plaintext) < MIN_PASSWORD_LENGTH:
-        raise PasswordTooWeakError(
-            f"Password must be at least {MIN_PASSWORD_LENGTH} characters"
-        )
+        raise PasswordTooWeakError(f"Password must be at least {MIN_PASSWORD_LENGTH} characters")
     return _HASHER.hash(plaintext)
 
 

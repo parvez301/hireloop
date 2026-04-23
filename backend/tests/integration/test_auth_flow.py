@@ -7,20 +7,14 @@ reset-token plaintexts instead of hitting a real transport.
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
-from typing import AsyncIterator
 from uuid import uuid4
 
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy import select
-
-
-def _unique_email(prefix: str) -> str:
-    """Return an email guaranteed-unique across runs so tests stay hermetic on
-    the shared dev database."""
-    return f"{prefix}-{uuid4().hex[:10]}@example.com"
 
 from hireloop.db import get_session_factory
 from hireloop.models.auth import (
@@ -30,6 +24,12 @@ from hireloop.models.auth import (
 )
 from hireloop.models.user import User
 from hireloop.services.email import CapturingEmailSender, set_email_sender
+
+
+def _unique_email(prefix: str) -> str:
+    """Return an email guaranteed-unique across runs so tests stay hermetic on
+    the shared dev database."""
+    return f"{prefix}-{uuid4().hex[:10]}@example.com"
 
 
 @pytest_asyncio.fixture
@@ -223,9 +223,7 @@ async def test_login_wrong_password_returns_401(
         },
     )
     code = _latest_code_from_emails(capturing_sender)
-    await client.post(
-        "/api/v1/auth/verify-email", json={"email": email, "code": code}
-    )
+    await client.post("/api/v1/auth/verify-email", json={"email": email, "code": code})
 
     response = await client.post(
         "/api/v1/auth/login",
@@ -253,9 +251,7 @@ async def test_login_after_verification_returns_session(
         },
     )
     code = _latest_code_from_emails(capturing_sender)
-    await client.post(
-        "/api/v1/auth/verify-email", json={"email": email, "code": code}
-    )
+    await client.post("/api/v1/auth/verify-email", json={"email": email, "code": code})
 
     response = await client.post(
         "/api/v1/auth/login",
@@ -346,9 +342,7 @@ async def test_refresh_issues_new_access_token(
     )
     code = _latest_code_from_emails(capturing_sender)
     session = (
-        await client.post(
-            "/api/v1/auth/verify-email", json={"email": email, "code": code}
-        )
+        await client.post("/api/v1/auth/verify-email", json={"email": email, "code": code})
     ).json()["data"]
 
     response = await client.post(
@@ -377,9 +371,7 @@ async def test_logout_revokes_refresh_token(
     )
     code = _latest_code_from_emails(capturing_sender)
     session = (
-        await client.post(
-            "/api/v1/auth/verify-email", json={"email": email, "code": code}
-        )
+        await client.post("/api/v1/auth/verify-email", json={"email": email, "code": code})
     ).json()["data"]
     refresh_token = session["refreshToken"]
 
@@ -412,9 +404,7 @@ async def test_resend_code_cooldown(
         },
     )
     # Signup already sent one email.
-    response = await client.post(
-        "/api/v1/auth/resend-code", json={"email": email}
-    )
+    response = await client.post("/api/v1/auth/resend-code", json={"email": email})
     # Immediate resend hits the 1-minute cooldown.
     assert response.status_code == 429
     assert response.json()["error"]["code"] == "RESEND_TOO_SOON"
@@ -435,9 +425,7 @@ async def test_resend_code_cooldown(
         row.created_at = datetime.now(UTC) - timedelta(minutes=2)
         await session.commit()
 
-    response = await client.post(
-        "/api/v1/auth/resend-code", json={"email": email}
-    )
+    response = await client.post("/api/v1/auth/resend-code", json={"email": email})
     assert response.status_code == 204
 
 
@@ -445,9 +433,7 @@ async def test_resend_code_cooldown(
 async def test_resend_code_for_unknown_email_is_silent(
     client: AsyncClient, capturing_sender: CapturingEmailSender
 ) -> None:
-    response = await client.post(
-        "/api/v1/auth/resend-code", json={"email": "nobody@example.com"}
-    )
+    response = await client.post("/api/v1/auth/resend-code", json={"email": "nobody@example.com"})
     assert response.status_code == 204
     assert capturing_sender.sent == []
 
@@ -467,9 +453,7 @@ async def test_refresh_token_is_persisted(
         },
     )
     code = _latest_code_from_emails(capturing_sender)
-    await client.post(
-        "/api/v1/auth/verify-email", json={"email": email, "code": code}
-    )
+    await client.post("/api/v1/auth/verify-email", json={"email": email, "code": code})
 
     user = await _fetch_user_by_email(email)
     assert user is not None
@@ -477,10 +461,14 @@ async def test_refresh_token_is_persisted(
     factory = get_session_factory()
     async with factory() as session:
         rows = (
-            await session.execute(
-                select(AuthRefreshToken).where(AuthRefreshToken.user_id == user.id)
+            (
+                await session.execute(
+                    select(AuthRefreshToken).where(AuthRefreshToken.user_id == user.id)
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         assert len(rows) >= 1
         # Ensure reset-token table persistence worked when forgot-path would run.
         _ = select(PasswordResetToken)

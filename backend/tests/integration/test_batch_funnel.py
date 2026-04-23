@@ -105,9 +105,7 @@ async def test_funnel_l0_through_l2(seed_profile):
 
     # L0
     async with factory() as session:
-        survivors_l0 = await run_l0(
-            session, batch_run_id=brun_id, job_ids=jids, user_id=uid
-        )
+        survivors_l0 = await run_l0(session, batch_run_id=brun_id, job_ids=jids, user_id=uid)
         await session.commit()
     assert len(survivors_l0) == 1
 
@@ -138,11 +136,7 @@ async def test_funnel_l0_through_l2(seed_profile):
     # Verify batch_items final stages
     async with factory() as session:
         items = (
-            (
-                await session.execute(
-                    select(BatchItem).where(BatchItem.batch_run_id == brun_id)
-                )
-            )
+            (await session.execute(select(BatchItem).where(BatchItem.batch_run_id == brun_id)))
             .scalars()
             .all()
         )

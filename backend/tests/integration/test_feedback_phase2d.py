@@ -17,9 +17,7 @@ from tests.integration._phase2d_fakes import (
 
 
 @pytest.mark.asyncio
-async def test_feedback_evaluation(
-    auth_headers, seed_profile, seeded_evaluation_for_user_a
-):
+async def test_feedback_evaluation(auth_headers, seed_profile, seeded_evaluation_for_user_a):
     with patch(
         "hireloop.integrations.cognito.CognitoJwtVerifier.verify",
         new=AsyncMock(return_value=FAKE_CLAIMS),

@@ -49,9 +49,7 @@ async def extract_json(prompt: str, *, timeout_s: float = 8.0) -> dict[str, Any]
 
 
 def _claude_extract_text(msg: anthropic.types.Message) -> str:
-    return "".join(
-        block.text for block in msg.content if getattr(block, "type", "") == "text"
-    )
+    return "".join(block.text for block in msg.content if getattr(block, "type", "") == "text")
 
 
 async def _claude_classify_intent(message: str) -> ClassifiedIntent:
@@ -72,7 +70,7 @@ async def _claude_classify_intent(message: str) -> ClassifiedIntent:
             ),
             timeout=settings.llm_classifier_timeout_s,
         )
-    except (TimeoutError, asyncio.TimeoutError):
+    except TimeoutError:
         return "CAREER_GENERAL"
     except Exception:
         return "CAREER_GENERAL"
@@ -87,9 +85,7 @@ async def _claude_classify_intent(message: str) -> ClassifiedIntent:
     return token  # type: ignore[return-value]
 
 
-async def _claude_extract_json(
-    prompt: str, *, timeout_s: float = 8.0
-) -> dict[str, Any]:
+async def _claude_extract_json(prompt: str, *, timeout_s: float = 8.0) -> dict[str, Any]:
     settings = get_settings()
     client = get_batch_client()
     try:
@@ -106,10 +102,8 @@ async def _claude_extract_json(
             ),
             timeout=timeout_s,
         )
-    except (TimeoutError, asyncio.TimeoutError) as exc:
-        raise LLMTimeoutError(
-            f"Claude call exceeded {timeout_s}s", provider="anthropic"
-        ) from exc
+    except TimeoutError as exc:
+        raise LLMTimeoutError(f"Claude call exceeded {timeout_s}s", provider="anthropic") from exc
     except anthropic.APIError as exc:
         raise LLMError(f"Claude API error: {exc}", provider="anthropic") from exc
 
