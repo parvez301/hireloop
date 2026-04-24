@@ -11,8 +11,9 @@ from dataclasses import dataclass
 from typing import Any
 
 from hireloop.config import get_settings
-from hireloop.core.llm.anthropic_client import complete_with_cache
+from hireloop.core.llm.anthropic_client import CallRoute, complete_with_cache
 from hireloop.core.llm.errors import LLMParseError
+from hireloop.core.llm.personalisation import with_personalisation
 
 _CACHEABLE_INSTRUCTIONS = """You are a salary negotiation coach. Generate a complete negotiation
 playbook for an offer based on the candidate's situation and the market.
@@ -58,7 +59,9 @@ OUTPUT JSON SCHEMA:
 
 No prose outside JSON."""
 
-_SYSTEM = "You are a salary negotiation coach. Output only strict JSON matching the schema."
+_SYSTEM = with_personalisation(
+    "You are a salary negotiation coach. Output only strict JSON matching the schema."
+)
 
 
 @dataclass
@@ -79,6 +82,7 @@ async def generate_negotiation_playbook(
     current_comp: dict[str, Any] | None,
     experience_summary: str,
     feedback: str | None = None,
+    route: CallRoute = "realtime",
 ) -> GeneratedPlaybook:
     """One-shot Claude call. Uses prompt caching on the instructions block."""
     settings = get_settings()
@@ -101,7 +105,7 @@ async def generate_negotiation_playbook(
         model=settings.claude_model,
         max_tokens=3000,
         timeout_s=settings.llm_evaluation_timeout_s,
-        route="batch",
+        route=route,
     )
     parsed = _parse(result.text)
     return GeneratedPlaybook(

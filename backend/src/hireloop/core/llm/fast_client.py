@@ -4,6 +4,8 @@ Exposes `classify_intent()` and `extract_json()` — used for the L0 classifier,
 structured-extraction in the job parser, and scanner relevance gating. Dispatches
 on `settings.fast_llm_provider`:
 
+- "groq"    → Llama 3.1 8B via the Groq HTTP API (the routing-doc default for
+              FAST tier — fastest + cheapest path).
 - "claude"  → haiku via the Anthropic SDK (bridge-routed when configured).
 - "gemini"  → legacy Google generativeai path (kept for fallback / cost comparison).
 
@@ -21,7 +23,7 @@ from typing import Any, Literal
 import anthropic
 
 from hireloop.config import get_settings
-from hireloop.core.llm import gemini_client
+from hireloop.core.llm import gemini_client, groq_client
 from hireloop.core.llm.anthropic_client import get_batch_client
 from hireloop.core.llm.errors import LLMError, LLMParseError, LLMTimeoutError
 
@@ -31,6 +33,8 @@ _VALID_INTENTS = gemini_client._VALID_INTENTS
 
 async def classify_intent(message: str) -> ClassifiedIntent:
     provider = get_settings().fast_llm_provider.lower()
+    if provider == "groq":
+        return await _groq_classify_intent(message)
     if provider == "gemini":
         return await gemini_client.classify_intent(message)
     return await _claude_classify_intent(message)
@@ -38,6 +42,8 @@ async def classify_intent(message: str) -> ClassifiedIntent:
 
 async def extract_json(prompt: str, *, timeout_s: float = 8.0) -> dict[str, Any]:
     provider = get_settings().fast_llm_provider.lower()
+    if provider == "groq":
+        return await _groq_extract_json(prompt, timeout_s=timeout_s)
     if provider == "gemini":
         return await gemini_client.extract_json(prompt, timeout_s=timeout_s)
     return await _claude_extract_json(prompt, timeout_s=timeout_s)
@@ -124,10 +130,50 @@ async def _claude_extract_json(prompt: str, *, timeout_s: float = 8.0) -> dict[s
         ) from exc
 
 
+# ---------------------------------------------------------------------------
+# Groq (Llama 3.1 8B) impls
+# ---------------------------------------------------------------------------
+
+
+async def _groq_classify_intent(message: str) -> ClassifiedIntent:
+    settings = get_settings()
+    prompt = gemini_client._build_classifier_prompt(message)
+    try:
+        text = await groq_client.complete_text(
+            user=prompt,
+            system=(
+                "You are a single-word classifier. Reply with exactly one of the "
+                "category tokens and nothing else."
+            ),
+            max_tokens=16,
+            temperature=0,
+            timeout_s=settings.llm_classifier_timeout_s,
+        )
+    except (LLMTimeoutError, LLMError):
+        return "CAREER_GENERAL"
+    except Exception:
+        return "CAREER_GENERAL"
+
+    raw = text.strip().upper()
+    match = re.search(r"[A-Z_]+", raw)
+    if not match:
+        return "CAREER_GENERAL"
+    token = match.group(0)
+    if token not in _VALID_INTENTS:
+        return "CAREER_GENERAL"
+    return token  # type: ignore[return-value]
+
+
+async def _groq_extract_json(prompt: str, *, timeout_s: float = 8.0) -> dict[str, Any]:
+    return await groq_client.complete_json(user=prompt, timeout_s=timeout_s)
+
+
 # Re-export provider metadata for usage-event logging.
-def active_provider_model() -> tuple[Literal["claude", "gemini"], str]:
+def active_provider_model() -> tuple[Literal["groq", "claude", "gemini"], str]:
     settings = get_settings()
     provider = settings.fast_llm_provider.lower()
+    if provider == "groq":
+        return "groq", settings.groq_model
     if provider == "gemini":
         return "gemini", settings.gemini_model
     return "claude", settings.claude_haiku_model

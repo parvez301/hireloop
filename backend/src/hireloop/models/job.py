@@ -29,6 +29,9 @@ class Job(Base):
     seniority: Mapped[str | None] = mapped_column(String(64), nullable=True)
     description_md: Mapped[str] = mapped_column(Text, nullable=False)
     requirements_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    # Layer-3 structured JD extraction (PERSONALISATION_STRATEGY.md). Populated
+    # lazily by services.jd_extractor.ensure_jd_structure() on first use.
+    parsed_jd_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     source: Mapped[str] = mapped_column(String(32), nullable=False)
     board_company: Mapped[str | None] = mapped_column(String(255), nullable=True)
     discovered_at: Mapped[datetime] = mapped_column(

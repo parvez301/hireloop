@@ -11,6 +11,11 @@ from hireloop.models.profile import Profile
 from hireloop.models.star_story import StarStory
 from hireloop.models.user import User
 from hireloop.schemas.profile import ProfileUpdate
+from hireloop.services.cv_structure_extractor import extract_cv_structure
+from hireloop.services.profile_extractor import (
+    extract_profile_from_cv,
+    merge_extracted_into_profile,
+)
 from hireloop.services.resume_parser import ResumeParseError, parse_resume_bytes
 from hireloop.services.storage import StorageService
 from hireloop.services.subscription import ensure_subscription
@@ -112,7 +117,15 @@ async def upload_resume(
 
     profile.master_resume_s3 = s3_key
     profile.master_resume_md = parsed["markdown"]
-    profile.parsed_resume_json = {"text": parsed["text"], "content_type": parsed["content_type"]}
+    structure = await extract_cv_structure(parsed["markdown"])
+    profile.parsed_resume_json = {
+        "text": parsed["text"],
+        "content_type": parsed["content_type"],
+        "structure": structure,
+    }
+
+    extracted = await extract_profile_from_cv(parsed["markdown"])
+    merge_extracted_into_profile(profile, extracted)
 
     became_done = _advance_onboarding(profile)
     if became_done:
@@ -133,7 +146,15 @@ async def upload_resume_text(
     markdown-ish text already. Still advances onboarding on success.
     """
     profile.master_resume_md = text
-    profile.parsed_resume_json = {"text": text, "content_type": "text/markdown"}
+    structure = await extract_cv_structure(text)
+    profile.parsed_resume_json = {
+        "text": text,
+        "content_type": "text/markdown",
+        "structure": structure,
+    }
+
+    extracted = await extract_profile_from_cv(text)
+    merge_extracted_into_profile(profile, extracted)
 
     became_done = _advance_onboarding(profile)
     if became_done:

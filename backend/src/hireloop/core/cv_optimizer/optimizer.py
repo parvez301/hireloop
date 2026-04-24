@@ -8,8 +8,9 @@ from dataclasses import dataclass
 from typing import Any
 
 from hireloop.config import get_settings
-from hireloop.core.llm.anthropic_client import complete_with_cache
+from hireloop.core.llm.anthropic_client import CallRoute, complete_with_cache
 from hireloop.core.llm.errors import LLMParseError
+from hireloop.core.llm.personalisation import with_personalisation
 
 _CACHEABLE_RULES = """You are an expert resume writer optimizing a master resume for a specific job.
 Your job is to enhance framing, inject relevant keywords naturally, and reorder content
@@ -26,7 +27,9 @@ RULES:
 7. Output the full optimized resume in Markdown format
 8. Also output a "changes_summary" explaining what you changed and why"""
 
-_SYSTEM = "You are a precise resume editor. Output only JSON — never prose outside JSON."
+_SYSTEM = with_personalisation(
+    "You are a precise resume editor. Output only JSON — never prose outside JSON."
+)
 
 
 @dataclass
@@ -47,6 +50,7 @@ class CvOptimizer:
         job_markdown: str,
         keywords: list[str],
         additional_feedback: str | None,
+        route: CallRoute = "realtime",
     ) -> OptimizationResult:
         settings = get_settings()
         user_block = self._build_user_block(
@@ -59,7 +63,7 @@ class CvOptimizer:
             model=settings.claude_model,
             max_tokens=4000,
             timeout_s=settings.llm_cv_optimize_timeout_s,
-            route="batch",
+            route=route,
         )
         parsed = self._parse(result.text)
         return OptimizationResult(

@@ -25,6 +25,7 @@ from hireloop.core.evaluation.rule_scorer import (
     RuleScorer,
     ScoringContext,
 )
+from hireloop.core.llm.anthropic_client import CallRoute
 from hireloop.models.evaluation import Evaluation
 from hireloop.models.job import Job
 from hireloop.models.profile import Profile
@@ -36,6 +37,11 @@ class EvaluationContext:
     user_id: uuid.UUID
     session: AsyncSession
     usage: UsageEventService
+    # Routing for the Claude scorer call. User-facing eval uses "realtime"
+    # (direct API, fast TTFT). Background L2 batch eval uses "batch" (bridge
+    # = Claude Max savings) with "realtime" as a fallback if the bridge fails.
+    claude_route: CallRoute = "realtime"
+    claude_fallback_route: CallRoute | None = None
 
 
 class EvaluationService:
@@ -98,6 +104,8 @@ class EvaluationService:
                 job_markdown=parsed.description_md,
                 profile_summary=self._compact_profile(profile),
                 rule_results_text=rule_text,
+                route=self.context.claude_route,
+                fallback_route=self.context.claude_fallback_route,
             )
             claude_dims = scored.dimensions
             overall_reasoning = scored.overall_reasoning

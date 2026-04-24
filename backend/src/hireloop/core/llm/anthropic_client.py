@@ -149,3 +149,74 @@ async def complete_with_cache(
         model=getattr(msg, "model", model),
         stop_reason=getattr(msg, "stop_reason", "end_turn") or "end_turn",
     )
+
+
+async def complete_with_cache_with_fallback(
+    *,
+    system: str,
+    cacheable_blocks: list[str],
+    user_block: str,
+    model: str,
+    max_tokens: int,
+    temperature: float = 0.2,
+    tools: list[dict[str, Any]] | None = None,
+    timeout_s: float = 60.0,
+    primary_route: CallRoute = "batch",
+    fallback_route: CallRoute = "realtime",
+) -> CompletionResult:
+    """Try `primary_route` first; on LLMError fall through to `fallback_route`.
+
+    Designed for the L2 batch eval path: prefer the bridge (Claude Max savings)
+    when it's healthy, but never let bridge instability block evaluation. The
+    fallback only triggers on LLMError (timeout / quota / API error / parse).
+    Programming errors propagate as-is.
+
+    Same-route retry is not attempted — if the primary path raises a transient
+    upstream error the bridge would have served cached, the fallback covers it.
+    """
+    if primary_route == fallback_route:
+        return await complete_with_cache(
+            system=system,
+            cacheable_blocks=cacheable_blocks,
+            user_block=user_block,
+            model=model,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            tools=tools,
+            timeout_s=timeout_s,
+            route=primary_route,
+        )
+
+    import logging
+
+    logger = logging.getLogger(__name__)
+    try:
+        return await complete_with_cache(
+            system=system,
+            cacheable_blocks=cacheable_blocks,
+            user_block=user_block,
+            model=model,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            tools=tools,
+            timeout_s=timeout_s,
+            route=primary_route,
+        )
+    except LLMError as exc:
+        logger.warning(
+            "anthropic primary route %s failed (%s); falling back to %s",
+            primary_route,
+            exc,
+            fallback_route,
+        )
+        return await complete_with_cache(
+            system=system,
+            cacheable_blocks=cacheable_blocks,
+            user_block=user_block,
+            model=model,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            tools=tools,
+            timeout_s=timeout_s,
+            route=fallback_route,
+        )

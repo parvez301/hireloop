@@ -8,8 +8,14 @@ from dataclasses import dataclass
 from typing import Any
 
 from hireloop.config import get_settings
-from hireloop.core.llm.anthropic_client import CompletionResult, complete_with_cache
+from hireloop.core.llm.anthropic_client import (
+    CallRoute,
+    CompletionResult,
+    complete_with_cache,
+    complete_with_cache_with_fallback,
+)
 from hireloop.core.llm.errors import LLMParseError
+from hireloop.core.llm.personalisation import with_personalisation
 
 _FRAMEWORK = """You are an expert job evaluator for HireLoop. You score jobs against a candidate
 profile across 6 reasoning dimensions. 4 other dimensions are pre-scored by rules
@@ -41,7 +47,9 @@ RED FLAGS TO WATCH FOR:
 
 OUTPUT FORMAT: Valid JSON matching the schema in the final message. No prose outside JSON."""
 
-_SYSTEM = "You are a precise, JSON-emitting career evaluator. Never include prose outside JSON."
+_SYSTEM = with_personalisation(
+    "You are a precise, JSON-emitting career evaluator. Never include prose outside JSON."
+)
 
 
 @dataclass
@@ -61,19 +69,33 @@ class ClaudeScorer:
         job_markdown: str,
         profile_summary: dict[str, Any],
         rule_results_text: str,
+        route: CallRoute = "realtime",
+        fallback_route: CallRoute | None = None,
     ) -> ClaudeScoringResult:
         settings = get_settings()
         user_block = self._build_user_block(job_markdown, profile_summary, rule_results_text)
 
-        result = await complete_with_cache(
-            system=_SYSTEM,
-            cacheable_blocks=[_FRAMEWORK],
-            user_block=user_block,
-            model=settings.claude_model,
-            max_tokens=2000,
-            timeout_s=settings.llm_evaluation_timeout_s,
-            route="batch",
-        )
+        if fallback_route is not None and fallback_route != route:
+            result = await complete_with_cache_with_fallback(
+                system=_SYSTEM,
+                cacheable_blocks=[_FRAMEWORK],
+                user_block=user_block,
+                model=settings.claude_model,
+                max_tokens=2000,
+                timeout_s=settings.llm_evaluation_timeout_s,
+                primary_route=route,
+                fallback_route=fallback_route,
+            )
+        else:
+            result = await complete_with_cache(
+                system=_SYSTEM,
+                cacheable_blocks=[_FRAMEWORK],
+                user_block=user_block,
+                model=settings.claude_model,
+                max_tokens=2000,
+                timeout_s=settings.llm_evaluation_timeout_s,
+                route=route,
+            )
         parsed = self._parse(result)
         return ClaudeScoringResult(
             dimensions=parsed["dimensions"],

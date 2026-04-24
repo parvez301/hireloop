@@ -44,6 +44,7 @@ async def test_generator_job_mode():
             job_markdown="Senior Engineer at Stripe working on payment infrastructure.",
             custom_role=None,
             resume_md="## Jane Doe\n\nSenior engineer with payments experience.",
+            provider="anthropic",
         )
     assert len(result.questions) == 2
     assert result.questions[0]["suggested_story_title"] == "Led payments migration at Acme"
@@ -58,6 +59,7 @@ async def test_generator_custom_role_mode():
             job_markdown=None,
             custom_role="Staff SRE at any FAANG — focus on incident response and reliability",
             resume_md="## Jane Doe\n\nReliability engineering background.",
+            provider="anthropic",
         )
     assert len(result.questions) >= 1
 

@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from hireloop.config import get_settings
-from hireloop.core.llm.anthropic_client import CompletionUsage, complete_with_cache
+from hireloop.core.llm.anthropic_client import CallRoute, CompletionUsage, complete_with_cache
 from hireloop.schemas.star_story import StarStoryCreate
 
 
@@ -49,7 +49,9 @@ def _parse_stories_json(text: str) -> list[dict[str, Any]]:
     return [s for s in stories if isinstance(s, dict)]
 
 
-async def extract_star_stories_from_resume(master_resume_md: str) -> StarExtractionResult:
+async def extract_star_stories_from_resume(
+    master_resume_md: str, *, route: CallRoute = "realtime"
+) -> StarExtractionResult:
     """Call Claude with cached system + resume; return validated STAR drafts + usage."""
     settings = get_settings()
     user_block = f"RESUME:\n{master_resume_md}\n\nReturn JSON only."
@@ -62,7 +64,7 @@ async def extract_star_stories_from_resume(master_resume_md: str) -> StarExtract
         max_tokens=4096,
         temperature=0.2,
         timeout_s=settings.llm_evaluation_timeout_s,
-        route="batch",
+        route=route,
     )
 
     raw_list = _parse_stories_json(result.text)

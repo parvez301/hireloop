@@ -1,10 +1,15 @@
-"""InterviewPrepGenerator — Claude call to generate interview questions.
+"""InterviewPrepGenerator — generates interview questions per role.
 
-Uses parent spec Appendix D.6 prompt. Supports two modes:
+Two modes:
 1. Job-tied: `job_markdown` provided → questions tailored to the specific role
 2. Custom role: `custom_role` provided → generic prep for that role description
 
-Exactly one of the two must be set.
+Two providers (per the model-routing strategy doc, this task is BALANCED tier):
+- "gemini"    → Gemini 2.0 Flash via gemini_client.extract_json (cheaper, default)
+- "anthropic" → Claude Sonnet via complete_with_cache (legacy, fallback)
+
+Selected via `settings.interview_prep_provider`, overridable per call via the
+`provider` kwarg. Output schema is identical so callers don't need to branch.
 """
 
 from __future__ import annotations
@@ -12,11 +17,13 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 from hireloop.config import get_settings
-from hireloop.core.llm.anthropic_client import complete_with_cache
+from hireloop.core.llm import gemini_client
+from hireloop.core.llm.anthropic_client import CallRoute, complete_with_cache
 from hireloop.core.llm.errors import LLMParseError
+from hireloop.core.llm.personalisation import with_personalisation
 
 _CACHEABLE_INSTRUCTIONS = """You are an interview prep coach. Given a candidate's resume and a
 target role,
@@ -62,7 +69,9 @@ OUTPUT JSON SCHEMA:
 
 No prose outside JSON."""
 
-_SYSTEM = "You are an interview prep coach. Output only strict JSON matching the schema."
+_SYSTEM = with_personalisation(
+    "You are an interview prep coach. Output only strict JSON matching the schema."
+)
 
 
 @dataclass
@@ -73,24 +82,22 @@ class GeneratedInterviewPrep:
     model: str
 
 
-async def generate_interview_prep(
+InterviewPrepProvider = Literal["anthropic", "gemini"]
+
+
+def _build_user_block(
     *,
     existing_stories_summary: str,
     job_markdown: str | None,
     custom_role: str | None,
     resume_md: str,
-    feedback: str | None = None,
-) -> GeneratedInterviewPrep:
-    """Generate interview prep. Exactly one of job_markdown / custom_role must be set."""
-    if bool(job_markdown) == bool(custom_role):
-        raise ValueError("Exactly one of job_markdown or custom_role must be set")
-
-    settings = get_settings()
+    feedback: str | None,
+) -> str:
     role_block = (
         f"TARGET JOB:\n{job_markdown}" if job_markdown else f"TARGET ROLE (custom):\n{custom_role}"
     )
     feedback_block = f"\n\nUSER FEEDBACK FROM PRIOR ATTEMPT:\n{feedback}" if feedback else ""
-    user_block = (
+    return (
         f"CANDIDATE RESUME:\n{resume_md}\n\n"
         f"{role_block}\n\n"
         f"EXISTING STORY BANK (reference these in suggested_story_title, do not duplicate):\n"
@@ -98,6 +105,42 @@ async def generate_interview_prep(
         "Generate interview prep per the schema. Output JSON only."
     )
 
+
+async def generate_interview_prep(
+    *,
+    existing_stories_summary: str,
+    job_markdown: str | None,
+    custom_role: str | None,
+    resume_md: str,
+    feedback: str | None = None,
+    route: CallRoute = "realtime",
+    provider: InterviewPrepProvider | None = None,
+) -> GeneratedInterviewPrep:
+    """Generate interview prep. Exactly one of job_markdown / custom_role must be set.
+
+    `provider` defaults to `settings.interview_prep_provider` ("gemini" per the
+    routing doc). The `route` parameter only applies to the "anthropic" path.
+    """
+    if bool(job_markdown) == bool(custom_role):
+        raise ValueError("Exactly one of job_markdown or custom_role must be set")
+
+    settings = get_settings()
+    chosen = provider or settings.interview_prep_provider.lower()
+    user_block = _build_user_block(
+        existing_stories_summary=existing_stories_summary,
+        job_markdown=job_markdown,
+        custom_role=custom_role,
+        resume_md=resume_md,
+        feedback=feedback,
+    )
+
+    if chosen == "gemini":
+        return await _generate_via_gemini(user_block)
+    return await _generate_via_anthropic(user_block, route=route)
+
+
+async def _generate_via_anthropic(user_block: str, *, route: CallRoute) -> GeneratedInterviewPrep:
+    settings = get_settings()
     result = await complete_with_cache(
         system=_SYSTEM,
         cacheable_blocks=[_CACHEABLE_INSTRUCTIONS],
@@ -105,15 +148,33 @@ async def generate_interview_prep(
         model=settings.claude_model,
         max_tokens=3000,
         timeout_s=settings.llm_evaluation_timeout_s,
-        route="batch",
+        route=route,
     )
-
     parsed = _parse(result.text)
     return GeneratedInterviewPrep(
         questions=list(parsed.get("questions", [])),
         red_flag_questions=list(parsed.get("red_flag_questions", [])),
         usage=result.usage,
         model=result.model,
+    )
+
+
+async def _generate_via_gemini(user_block: str) -> GeneratedInterviewPrep:
+    settings = get_settings()
+    # Gemini doesn't support prompt caching the same way — inline the
+    # instructions block once per call. Cost difference is minimal vs Sonnet.
+    prompt = f"{_CACHEABLE_INSTRUCTIONS}\n\n{user_block}"
+    payload = await gemini_client.extract_json(prompt, timeout_s=settings.llm_evaluation_timeout_s)
+    if "questions" not in payload:
+        raise LLMParseError(
+            "Missing 'questions' field in generator response",
+            provider="gemini",
+        )
+    return GeneratedInterviewPrep(
+        questions=list(payload.get("questions", [])),
+        red_flag_questions=list(payload.get("red_flag_questions", [])),
+        usage=None,
+        model=settings.gemini_model,
     )
 
 

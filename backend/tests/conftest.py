@@ -21,6 +21,10 @@ os.environ.setdefault("AUTH_MODE", "cognito")
 # `fake_gemini` + `respx`ed Claude at different layers. Tests that want the
 # Claude path can set FAST_LLM_PROVIDER=claude inline.
 os.environ.setdefault("FAST_LLM_PROVIDER", "gemini")
+# Pin to anthropic so existing tests that fake_anthropic the interview prep
+# generator keep working. New code defaults to gemini per the routing doc; the
+# Gemini path has its own dispatch tests in test_interview_prep_gemini_dispatch.
+os.environ.setdefault("INTERVIEW_PREP_PROVIDER", "anthropic")
 
 _backend_root = Path(__file__).resolve().parent.parent
 _dotenv = _backend_root / ".env"

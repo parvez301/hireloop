@@ -74,15 +74,25 @@ class Settings(BaseSettings):
     # requires one. Ignored when anthropic_base_url is empty.
     anthropic_bridge_secret: str = ""
     google_api_key: str = ""
-    # Provider model IDs — confirm against Anthropic / Google docs when upgrading.
+    groq_api_key: str = ""
+    # Provider model IDs — confirm against Anthropic / Google / Groq docs when upgrading.
     claude_model: str = "claude-sonnet-4-6"
     claude_haiku_model: str = "claude-haiku-4-5-20251001"
     gemini_model: str = "gemini-2.0-flash"
-    # "claude" routes fast-tier calls (L0 classifier, structured extraction,
-    # scanner relevance) through the Anthropic SDK (bridge-compatible).
-    # "gemini" keeps the legacy Google path. Default is "claude" so the
-    # product works without GOOGLE_API_KEY billing.
-    fast_llm_provider: str = "claude"
+    groq_model: str = "llama-3.1-8b-instant"
+    # Groq exposes an OpenAI-compatible REST API. Override only for testing.
+    groq_base_url: str = "https://api.groq.com/openai/v1"
+    # Routes fast-tier calls (L0 classifier, structured extraction, scanner
+    # relevance) through the named provider. Per the model-routing strategy
+    # doc, "groq" (Llama 3.1 8B) is the production default — fastest + cheapest
+    # path. "claude" routes through Haiku via the Anthropic SDK (bridge-compat).
+    # "gemini" keeps the legacy Google path.
+    fast_llm_provider: str = "groq"
+    # Per the model-routing strategy doc, interview question generation belongs
+    # in the BALANCED tier (Gemini Flash) — high-volume structured output where
+    # Sonnet quality isn't critical. Set to "anthropic" to fall back to Sonnet
+    # if Gemini quality regresses in dogfood.
+    interview_prep_provider: str = "gemini"
     enable_prompt_caching: bool = True
     llm_classifier_timeout_s: float = 3.0
     llm_evaluation_timeout_s: float = 60.0
@@ -111,6 +121,13 @@ class Settings(BaseSettings):
     scan_l1_concurrency: int = 5
     batch_l2_concurrency: int = 10
     batch_l1_relevance_threshold: float = 0.5
+    # When True, evaluate_jobs_bounded submits all (user, job) pairs as a
+    # single Anthropic Batches API call (50% off Sonnet pricing). Adds 1-30
+    # min of polling latency vs the default per-job concurrent path. Off by
+    # default so the existing user-facing latency profile is unchanged.
+    evaluation_use_batch_api: bool = False
+    evaluation_batch_poll_interval_s: float = 10.0
+    evaluation_batch_timeout_s: float = 3600.0
 
     cors_origins: str = ""
 

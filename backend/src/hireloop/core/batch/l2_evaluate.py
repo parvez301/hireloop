@@ -1,4 +1,10 @@
-"""L2 evaluate — full 10-dim Claude evaluation per surviving job."""
+"""L2 evaluate — full 10-dim Claude evaluation per surviving job.
+
+Background evaluation runs the Claude scorer through the bridge (Claude Max
+subscription savings), falling through to the direct api.anthropic.com
+endpoint on bridge failure. User-facing single-job evaluation uses direct
+realtime (see `api/evaluations.py`), where TTFT matters.
+"""
 
 from __future__ import annotations
 
@@ -10,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from hireloop.config import get_settings
 from hireloop.core.evaluation.service import EvaluationContext, EvaluationService
+from hireloop.core.llm.anthropic_client import CallRoute
 from hireloop.db import get_session_factory
 from hireloop.models.evaluation import Evaluation
 from hireloop.models.job import Job
@@ -21,14 +28,27 @@ async def evaluate_job_for_user(
     *,
     user_id: UUID,
     job_id: UUID,
+    claude_route: CallRoute = "batch",
+    claude_fallback_route: CallRoute | None = "realtime",
 ) -> Evaluation | None:
-    """Run the full evaluation pipeline for a single (user, job)."""
+    """Run the full evaluation pipeline for a single (user, job).
+
+    Defaults to the bridge with direct-API fallback, matching the spec for
+    backend evaluation. Pass `claude_route="realtime", claude_fallback_route=None`
+    to force direct-only (e.g. user-facing single eval endpoints).
+    """
     job = (await session.execute(select(Job).where(Job.id == job_id))).scalar_one_or_none()
     if job is None:
         return None
 
     usage = UsageEventService(session)
-    context = EvaluationContext(user_id=user_id, session=session, usage=usage)
+    context = EvaluationContext(
+        user_id=user_id,
+        session=session,
+        usage=usage,
+        claude_route=claude_route,
+        claude_fallback_route=claude_fallback_route,
+    )
     service = EvaluationService(context)
     return await service.evaluate(job_description=job.description_md)
 

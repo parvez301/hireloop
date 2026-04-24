@@ -40,4 +40,24 @@ class Profile(Base, UUIDPKMixin, TimestampMixin):
         String(50), nullable=False, default="resume_upload"
     )
 
+    # Layer-1 personalisation fields (PERSONALISATION_STRATEGY.md). Populated
+    # by services.profile.extract_profile_from_cv() on resume upload and via
+    # the onboarding wizard for fields the model can't infer (deal breakers,
+    # current/target salary, notice period).
+    years_experience: Mapped[int | None] = mapped_column(Integer)
+    seniority_level: Mapped[str | None] = mapped_column(String(32))
+    industry: Mapped[str | None] = mapped_column(String(120))
+    specialisation: Mapped[str | None] = mapped_column(String(255))
+    salary_current: Mapped[str | None] = mapped_column(String(120))
+    salary_target: Mapped[str | None] = mapped_column(String(120))
+    notice_period: Mapped[str | None] = mapped_column(String(64))
+    deal_breakers: Mapped[list[str] | None] = mapped_column(JSONB)
+    non_negotiables: Mapped[list[str] | None] = mapped_column(JSONB)
+    top_strengths: Mapped[list[str] | None] = mapped_column(JSONB)
+    known_gaps: Mapped[list[str] | None] = mapped_column(JSONB)
+    certifications: Mapped[list[str] | None] = mapped_column(JSONB)
+    languages: Mapped[list[str] | None] = mapped_column(JSONB)
+    cv_tone: Mapped[str | None] = mapped_column(String(32))
+    preferred_length: Mapped[str | None] = mapped_column(String(32))
+
     user: Mapped["User"] = relationship("User", back_populates="profile")
